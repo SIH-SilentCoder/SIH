@@ -404,53 +404,73 @@ const OfficerDashboard = () => {
         )}
 
         {/* KPI Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-            <p className="text-xs font-semibold text-gray-500 uppercase">Today's Bookings</p>
-            <p className="text-2xl font-black text-gray-900 mt-1">{stats?.totalToday || 0}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+          <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-xs flex flex-col justify-between min-w-0 transition-all hover:shadow-sm">
+            <p className="text-[11px] sm:text-xs font-bold text-gray-500 uppercase tracking-wider truncate" title="Today's Bookings">
+              Today's Bookings
+            </p>
+            <p className="text-2xl sm:text-3xl font-black text-gray-900 mt-2 leading-none">
+              {stats?.totalToday || 0}
+            </p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-purple-200 bg-purple-50/20 shadow-sm">
-            <p className="text-xs font-semibold text-purple-700 uppercase">Arrived at Mandi</p>
-            <p className="text-2xl font-black text-purple-900 mt-1">{stats?.arrived || 0}</p>
+          <div className="bg-white p-4 rounded-2xl border border-purple-200 bg-purple-50/30 shadow-xs flex flex-col justify-between min-w-0 transition-all hover:shadow-sm">
+            <p className="text-[11px] sm:text-xs font-bold text-purple-700 uppercase tracking-wider truncate" title="Arrived at Mandi">
+              Arrived at Mandi
+            </p>
+            <p className="text-2xl sm:text-3xl font-black text-purple-900 mt-2 leading-none">
+              {stats?.arrived || 0}
+            </p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/20 shadow-sm">
-            <p className="text-xs font-semibold text-amber-700 uppercase">In Active Queue</p>
-            <p className="text-2xl font-black text-amber-900 mt-1">{stats?.waiting || 0}</p>
+          <div className="bg-white p-4 rounded-2xl border border-amber-200 bg-amber-50/30 shadow-xs flex flex-col justify-between min-w-0 transition-all hover:shadow-sm">
+            <p className="text-[11px] sm:text-xs font-bold text-amber-700 uppercase tracking-wider truncate" title="In Active Queue">
+              In Active Queue
+            </p>
+            <p className="text-2xl sm:text-3xl font-black text-amber-900 mt-2 leading-none">
+              {stats?.waiting || 0}
+            </p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 shadow-sm">
-            <p className="text-xs font-semibold text-emerald-700 uppercase">Procured / Completed</p>
-            <p className="text-2xl font-black text-emerald-900 mt-1">{stats?.completed || 0}</p>
+          <div className="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/30 shadow-xs flex flex-col justify-between min-w-0 transition-all hover:shadow-sm">
+            <p className="text-[11px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wider truncate" title="Procured / Completed">
+              Procured / Completed
+            </p>
+            <p className="text-2xl sm:text-3xl font-black text-emerald-900 mt-2 leading-none">
+              {stats?.completed || 0}
+            </p>
           </div>
-          <div className="bg-white p-4 rounded-xl border border-blue-200 bg-blue-50/20 shadow-sm">
-            <p className="text-xs font-semibold text-blue-700 uppercase">Pending Procurement</p>
-            <p className="text-2xl font-black text-blue-900 mt-1">{stats?.pending || 0}</p>
+          <div className="bg-white p-4 rounded-2xl border border-blue-200 bg-blue-50/30 shadow-xs flex flex-col justify-between min-w-0 transition-all hover:shadow-sm col-span-2 sm:col-span-1">
+            <p className="text-[11px] sm:text-xs font-bold text-blue-700 uppercase tracking-wider truncate" title="Pending Procurement">
+              Pending Procurement
+            </p>
+            <p className="text-2xl sm:text-3xl font-black text-blue-900 mt-2 leading-none">
+              {stats?.pending || 0}
+            </p>
           </div>
         </div>
 
         {/* Queue Operator Action Box */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
           {/* Main Calling Controller */}
-          <div className="lg:col-span-1 bg-gradient-to-br from-gray-900 via-gray-950 to-primary-950 text-white rounded-2xl p-6 shadow-md flex flex-col justify-between">
+          <div className="xl:col-span-1 bg-gradient-to-br from-gray-900 via-gray-950 to-primary-950 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-col justify-between min-w-0">
             <div>
-              <div className="flex items-center justify-between border-b border-gray-800 pb-3">
-                <span className="text-xs uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1.5">
-                  <Volume2 className="w-4 h-4" /> Queue Announcer
+              <div className="flex items-center justify-between border-b border-gray-800 pb-3 gap-2">
+                <span className="text-xs uppercase font-bold text-amber-400 tracking-wider flex items-center gap-1.5 truncate">
+                  <Volume2 className="w-4 h-4 flex-shrink-0" /> Queue Announcer
                 </span>
-                <span className="text-xs bg-gray-800 px-2.5 py-1 rounded-full text-gray-300 font-mono">
+                <span className="text-xs bg-gray-800 px-2.5 py-1 rounded-full text-gray-300 font-mono whitespace-nowrap">
                   Counter {selectedCounter}
                 </span>
               </div>
 
-              <div className="mt-6 text-center">
-                <p className="text-xs text-gray-400">CURRENTLY SERVING</p>
-                <div className="mt-2 py-3 px-6 bg-white/5 rounded-2xl border border-white/10">
-                  <span className="text-4xl font-black font-mono tracking-wider text-amber-400">
+              <div className="mt-5 text-center">
+                <p className="text-[11px] font-bold text-gray-400 tracking-widest uppercase">CURRENTLY SERVING</p>
+                <div className="mt-2 py-3 px-4 bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+                  <span className="text-2xl sm:text-3xl xl:text-4xl font-black font-mono tracking-wider text-amber-400 break-all block">
                     {currentCounterServing?.token || 'NO TOKEN'}
                   </span>
                 </div>
                 {currentCounterServing && (
-                  <div className="mt-3 text-left bg-white/5 p-3 rounded-xl text-xs space-y-1">
-                    <p className="text-gray-300">
+                  <div className="mt-3 text-left bg-white/5 p-3 rounded-xl text-xs space-y-1 border border-white/5">
+                    <p className="text-gray-300 truncate">
                       <strong className="text-white">Farmer:</strong> {currentCounterServing.farmerName}
                     </p>
                     <p className="text-gray-300">
@@ -461,31 +481,31 @@ const OfficerDashboard = () => {
               </div>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 space-y-2.5">
               <button
                 onClick={handleCallNext}
                 disabled={actionLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-base active:scale-98 disabled:opacity-50"
+                className="w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-gray-950 font-black rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-sm sm:text-base active:scale-98 disabled:opacity-50"
               >
-                <Play className="w-5 h-5 fill-current" />
-                Call Next Token to Counter {selectedCounter}
+                <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current flex-shrink-0" />
+                <span>Call Next Token to Counter {selectedCounter}</span>
               </button>
 
               {currentCounterServing && (
                 <button
                   onClick={() => openProcurementModal(currentCounterServing)}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-md"
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-xs sm:text-sm shadow-md"
                 >
-                  <Award className="w-4 h-4" />
-                  Weigh & Complete Procurement
+                  <Award className="w-4 h-4 flex-shrink-0" />
+                  <span>Weigh & Complete Procurement</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* Real-Time Live Queue List */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-gray-100">
+          <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6 flex flex-col min-w-0">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-gray-100">
               <div>
                 <h3 className="text-lg font-black text-gray-900">Live Mandi Queue</h3>
                 <p className="text-xs text-gray-500">Real-time turn progression & arrived farmers</p>
@@ -494,20 +514,20 @@ const OfficerDashboard = () => {
               {/* Filters */}
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <div className="relative flex-1 sm:w-48">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-gray-400" />
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search token / farmer..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
 
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="text-xs py-1.5 px-2.5 rounded-lg border border-gray-300 font-medium focus:outline-none"
+                  className="text-xs py-1.5 px-2.5 rounded-xl border border-gray-300 font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="all">All Queue</option>
                   <option value="serving">Serving</option>
@@ -518,41 +538,41 @@ const OfficerDashboard = () => {
             </div>
 
             {/* Table */}
-            <div className="mt-4 flex-1 overflow-x-auto">
+            <div className="mt-4 flex-1 overflow-x-auto min-w-0">
               {filteredItems.length === 0 ? (
                 <div className="text-center py-12 text-gray-400">
                   <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
                   <p className="text-sm font-medium">No farmers in the queue matching criteria.</p>
                 </div>
               ) : (
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs min-w-[500px]">
                   <thead>
                     <tr className="border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
-                      <th className="pb-3">Token</th>
-                      <th className="pb-3">Farmer</th>
-                      <th className="pb-3">Position</th>
-                      <th className="pb-3">Status</th>
+                      <th className="pb-3 pr-2">Token</th>
+                      <th className="pb-3 pr-2">Farmer</th>
+                      <th className="pb-3 pr-2">Position</th>
+                      <th className="pb-3 pr-2">Status</th>
                       <th className="pb-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredItems.map((item, idx) => (
                       <tr key={idx} className="hover:bg-gray-50 transition">
-                        <td className="py-3 font-mono font-bold text-sm text-primary-700">
+                        <td className="py-3 pr-2 font-mono font-bold text-sm text-primary-700 whitespace-nowrap">
                           {item.token}
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 pr-2">
                           <p className="font-semibold text-gray-900">{item.farmerName || 'Registered Farmer'}</p>
-                          <span className="text-[10px] text-gray-500">
+                          <span className="text-[10px] text-gray-500 block">
                             {item.bookingId?.cropName || 'Kharif/Rabi Crop'}
                           </span>
                         </td>
-                        <td className="py-3 font-semibold text-gray-700">
+                        <td className="py-3 pr-2 font-semibold text-gray-700 whitespace-nowrap">
                           {item.displayStatus === 'serving'
                             ? `At C-${item.counter || selectedCounter}`
                             : `#${idx + 1} in queue`}
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 pr-2 whitespace-nowrap">
                           <span
                             className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
                               item.displayStatus === 'serving'
@@ -565,12 +585,12 @@ const OfficerDashboard = () => {
                             {item.displayStatus}
                           </span>
                         </td>
-                        <td className="py-3 text-right space-x-1.5">
+                        <td className="py-3 text-right space-x-1.5 whitespace-nowrap">
                           {item.displayStatus === 'waiting' && (
                             <button
                               onClick={() => handleCallToken(item.token)}
                               disabled={actionLoading}
-                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-[11px] shadow-sm transition"
+                              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold text-[11px] shadow-xs transition"
                             >
                               Call
                             </button>
@@ -578,7 +598,7 @@ const OfficerDashboard = () => {
                           {(item.displayStatus === 'called' || item.displayStatus === 'serving') && (
                             <button
                               onClick={() => openProcurementModal(item)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] shadow-sm transition"
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] shadow-xs transition"
                             >
                               Weigh & Pay
                             </button>

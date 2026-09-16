@@ -133,14 +133,19 @@ const OfficerLayout = ({ children }) => {
         </div>
       )}
 
-      <main className="flex-1 lg:pl-64">
-        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg hover:bg-gray-100">
-            <Menu className="w-5 h-5 text-gray-600" />
-          </button>
-          <span className="text-sm font-bold text-gray-900">Officer Portal</span>
+      <main className="flex-1 lg:pl-64 min-w-0 w-full overflow-x-hidden">
+        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-700">
+              <Menu className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-bold text-gray-900">Officer Console</span>
+          </div>
+          <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full uppercase">
+            {roleLabel || 'Officer'}
+          </span>
         </div>
-        <div className="p-4 md:p-6 max-w-7xl mx-auto">{children}</div>
+        <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto min-w-0 w-full">{children}</div>
       </main>
     </div>
   );

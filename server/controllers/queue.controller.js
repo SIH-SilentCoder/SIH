@@ -211,11 +211,11 @@ const callNextInQueue = async (req, res, next) => {
     }
 
     const date = new Date();
-    const next = await getNextWaiting(centreId, date);
-    if (!next) throw new ApiError(404, 'No farmers are currently waiting in the queue.');
+    const nextEntry = await getNextWaiting(centreId, date);
+    if (!nextEntry) throw new ApiError(404, 'No farmers are currently waiting in the queue.');
 
     // Delegate to callToken
-    req.params = { token: next.token };
+    req.params = { token: nextEntry.token };
     req.body = { centreId, counter };
     return callToken(req, res, next);
   } catch (error) {
