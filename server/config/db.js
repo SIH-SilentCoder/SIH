@@ -14,6 +14,10 @@ const pool = new Pool({
   idleTimeoutMillis: 30000,
 });
 
+pool.on('error', (err) => {
+  console.warn(`⚠️ PostgreSQL pool connection error (${err.code || err.message}). Reconnecting on next query.`);
+});
+
 let isConnected = false;
 
 const connectDB = async () => {

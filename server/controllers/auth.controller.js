@@ -115,16 +115,6 @@ const verifyOtp = async (req, res, next) => {
     const cleanMobile = String(mobile).trim();
     const cleanOtp = String(otp).trim();
 
-    if (cleanOtp === '123456') {
-      return res.json(
-        new ApiResponse(200, {
-          verified: true,
-          mobile: cleanMobile,
-          verificationToken: 'demo-token-' + cleanMobile,
-        }, 'Mobile number verified successfully (Demo Mode).')
-      );
-    }
-
     try {
       const result = otpManager.verifyOtp(cleanMobile, cleanOtp);
       res.json(

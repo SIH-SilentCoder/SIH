@@ -32,10 +32,10 @@ const getProcurement = async (req, res, next) => {
   }
 };
 
-// PUT /api/procurements/:id/status - Officer/admin updates procurement status
+// PUT /api/procurements/:id/status - Officer/admin/quality staff updates procurement status
 const updateProcurementStatus = async (req, res, next) => {
   try {
-    const { status, grade, quantity, pricePerUnit, qualityNotes } = req.body;
+    const { status, grade, quantity, pricePerUnit, qualityNotes, moisture, foreignMatter } = req.body;
 
     const validStatuses = ['pending', 'in_progress', 'completed', 'rejected'];
     if (!validStatuses.includes(status)) {
@@ -59,6 +59,8 @@ const updateProcurementStatus = async (req, res, next) => {
     };
     if (grade) updates.grade = grade;
     if (qualityNotes) updates.qualityNotes = qualityNotes;
+    if (moisture) updates.moisture = moisture;
+    if (foreignMatter) updates.foreignMatter = foreignMatter;
 
     if (status === 'in_progress') {
       // Update booking status
@@ -73,6 +75,11 @@ const updateProcurementStatus = async (req, res, next) => {
       updates.totalAmount = finalQty * price;
       updates.completedAt = new Date();
       updates.procurementDate = new Date();
+
+      // Generate official slip number if not present
+      if (!procurement.slipNumber && !updates.slipNumber) {
+        updates.slipNumber = `SLIP-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+      }
 
       // Update booking status
       await Booking.findByIdAndUpdate(procurement.bookingId, { status: 'procurement_completed' });
@@ -101,7 +108,45 @@ const updateProcurementStatus = async (req, res, next) => {
     }
 
     const updated = await Procurement.findByIdAndUpdate(req.params.id, updates, { new: true });
-    res.json(new ApiResponse(200, { procurement: updated }, 'Procurement status updated.'));
+    res.json(new ApiResponse(200, { procurement: updated }, 'Procurement status updated & weight slip generated.'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/procurements/:id/forward-payment — Mandi Officer reviews slip & forwards to payment department
+const forwardProcurementToPayment = async (req, res, next) => {
+  try {
+    const procurement = await Procurement.findById(req.params.id);
+    if (!procurement) throw new ApiError(404, 'Procurement record not found.');
+
+    procurement.officerApproved = true;
+    procurement.officerApprovedAt = new Date();
+    procurement.officerApprovedBy = req.user._id;
+    await procurement.save();
+
+    // Find payment & update to processing
+    const payment = await Payment.findOne({ procurementId: procurement._id });
+    if (payment) {
+      payment.status = 'processing';
+      payment.processedBy = req.user._id;
+      await payment.save();
+    }
+
+    // Update booking status to payment_processing
+    await Booking.findByIdAndUpdate(procurement.bookingId, { status: 'payment_processing' });
+
+    // Notify farmer
+    notificationService.paymentProcessing(procurement.farmerId, procurement._id);
+
+    if (req.io) {
+      req.io.to(`user:${procurement.farmerId}`).emit('payment:updated', {
+        procurementId: procurement._id,
+        status: 'processing',
+      });
+    }
+
+    res.json(new ApiResponse(200, { procurement, payment }, 'Procurement slip approved & forwarded to Direct Payment Department.'));
   } catch (error) {
     next(error);
   }
@@ -149,4 +194,4 @@ const createProcurement = async (req, res, next) => {
   }
 };
 
-module.exports = { getProcurement, updateProcurementStatus, createProcurement };
+module.exports = { getProcurement, updateProcurementStatus, createProcurement, forwardProcurementToPayment };

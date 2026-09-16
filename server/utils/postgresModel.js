@@ -255,9 +255,9 @@ class Query {
       else if (transform.type === 'select') {
         const fields = transform.fields.split(/\s+/).filter(Boolean);
         const exclude = fields.filter((field) => field.startsWith('-')).map((field) => field.slice(1));
-        if (exclude.length) documents.forEach((item) => exclude.forEach((field) => delete item[field]));
+        if (exclude.length) documents.forEach((item) => item && exclude.forEach((field) => delete item[field]));
       } else if (transform.type === 'populate') {
-        await Promise.all(documents.map((item) => this.model._populate(item, transform.path)));
+        await Promise.all(documents.map((item) => item ? this.model._populate(item, transform.path) : null));
       }
     }
     return many ? documents : documents[0] || null;

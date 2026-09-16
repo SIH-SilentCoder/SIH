@@ -62,20 +62,40 @@ class OtpManager {
   }
 
   /**
-   * Verify an entered OTP (strictly verifies the active random OTP)
+   * Verify an entered OTP (strictly verifies the active random OTP or demo code '123456')
    */
   verifyOtp(mobile, enteredOtp) {
     const cleanMobile = String(mobile).trim();
     const cleanOtp = String(enteredOtp).trim();
+    const now = Date.now();
+
+    // Support demo OTP '123456' for sandbox testing
+    if (cleanOtp === '123456') {
+      const verificationToken = crypto.randomBytes(24).toString('hex');
+      const record = this.store.get(cleanMobile);
+      if (record) {
+        record.verified = true;
+        record.verificationToken = verificationToken;
+        record.verifiedAt = now;
+      } else {
+        this.store.set(cleanMobile, {
+          verified: true,
+          verificationToken,
+          verifiedAt: now,
+          expiresAt: now + 15 * 60 * 1000,
+        });
+      }
+      return { verified: true, verificationToken };
+    }
+
     const record = this.store.get(cleanMobile);
 
     if (!record) {
-      const error = new Error('No active OTP found or previous OTP has expired. Please request a new OTP.');
+      const error = new Error('No active OTP found or previous OTP has expired. Please click "Get OTP" to request a new OTP.');
       error.statusCode = 400;
       throw error;
     }
 
-    const now = Date.now();
     if (now > record.expiresAt) {
       this.store.delete(cleanMobile);
       const error = new Error('OTP has expired. Please request a fresh OTP.');

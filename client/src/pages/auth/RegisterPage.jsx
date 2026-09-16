@@ -115,9 +115,8 @@ const RegisterPage = () => {
     }
   };
 
-  // Enable register button ONLY when:
-  // 1. Mobile number OTP verification is successful
-  // 2. All required registration fields are filled and valid
+  const hasValidOtp = form.otp.trim().length === 6;
+
   const isFormValid = !!(
     form.name.trim() &&
     form.mobile.trim().length === 10 &&
@@ -126,23 +125,32 @@ const RegisterPage = () => {
     form.address.trim()
   );
 
-  const canRegister = isMobileVerified && isFormValid && !loading;
+  const canRegister = (isMobileVerified || (otpSent && hasValidOtp)) && isFormValid && !loading;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!isMobileVerified) {
-      toast.error('Mobile number OTP verification is mandatory before registration.');
-      return;
-    }
 
     if (!isFormValid) {
       toast.error('Please fill in all 5 required fields.');
       return;
     }
 
+    if (!otpSent && !isMobileVerified) {
+      toast.error('Please click "Send OTP" to verify your mobile number.');
+      return;
+    }
+
     setLoading(true);
     try {
+      // Auto-verify OTP if 6 digits provided but not verified yet
+      if (!isMobileVerified && hasValidOtp) {
+        await authService.verifyOtp({
+          mobile: form.mobile.trim(),
+          otp: form.otp.trim(),
+        });
+        setIsMobileVerified(true);
+      }
+
       await register({
         name: form.name.trim(),
         mobile: form.mobile.trim(),
@@ -513,14 +521,14 @@ const RegisterPage = () => {
               </Button>
 
               {/* Status explanation when Register button is disabled */}
-              {!isMobileVerified ? (
+              {!isMobileVerified && !hasValidOtp ? (
                 <div className="flex items-center justify-center gap-1.5 p-2 bg-amber-50 border border-amber-200 rounded-xl text-center text-xs text-amber-800 font-medium animate-fadeIn">
                   <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                  <span>Register button is disabled until mobile OTP is verified.</span>
+                  <span>Please send and enter the 6-digit OTP to enable registration.</span>
                 </div>
               ) : !isFormValid ? (
                 <p className="text-xs text-center text-gray-500">
-                  Please fill in all remaining fields to enable registration.
+                  Please fill in all 5 required fields to complete registration.
                 </p>
               ) : (
                 <p className="text-xs text-center text-emerald-700 font-semibold flex items-center justify-center gap-1">

@@ -1,18 +1,23 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Users, CheckCircle2, Clock, AlertTriangle, Play, Check, XCircle,
-  Phone, Package, RefreshCw, Volume2, Search, Filter, Shield, Award
+  Phone, Package, RefreshCw, Volume2, Search, Filter, Shield, Award, FileText, ArrowRight
 } from 'lucide-react';
 import { IoClose } from 'react-icons/io5';
 import OfficerLayout from '../../layouts/OfficerLayout';
 import { officerService, queueService, procurementService } from '../../services';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
+import ProcurementSlipModal from '../../components/common/ProcurementSlipModal';
 import {
   formatCurrency, formatTime, formatWaitTime, extractError,
   BOOKING_STATUS_COLORS, QUEUE_STATUS_LABELS
 } from '../../utils/constants';
+import toast from 'react-hot-toast';
 
 const OfficerDashboard = () => {
+  const { user } = useAuth();
+  const isQualityStaff = user?.role === 'quality_staff';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -21,6 +26,13 @@ const OfficerDashboard = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [isForwarding, setIsForwarding] = useState(false);
+
+  // Procurement Slip Modal state
+  const [slipModal, setSlipModal] = useState({
+    open: false,
+    data: null,
+  });
 
   // Modal for completing procurement
   const [procurementModal, setProcurementModal] = useState({
@@ -29,7 +41,7 @@ const OfficerDashboard = () => {
     booking: null,
     actualQuantity: '',
     grade: 'A',
-    moisture: '',
+    moisture: '11.5',
     qualityNotes: '',
     pricePerUnit: '',
     totalAmount: 0,
@@ -155,6 +167,68 @@ const OfficerDashboard = () => {
     }));
   };
 
+  const handleForwardToPayment = async (procurementId) => {
+    if (!procurementId) return;
+    setIsForwarding(true);
+    try {
+      const res = await procurementService.forwardToPayment(procurementId);
+      toast.success(res.data?.message || 'Procurement slip approved & forwarded to Direct Payment Department!');
+      setSlipModal((prev) => ({ ...prev, open: false }));
+      await fetchDashboard(true);
+    } catch (err) {
+      toast.error(extractError(err));
+    } finally {
+      setIsForwarding(false);
+    }
+  };
+
+  const openSlipForBooking = async (booking) => {
+    try {
+      let proc = null;
+      const targetProcId = booking.procurementId?._id || booking.procurementId;
+      if (targetProcId) {
+        try {
+          const res = await procurementService.getProcurement(targetProcId);
+          proc = res.data?.data?.procurement;
+        } catch (e) {
+          console.warn('Could not fetch procurement details', e);
+        }
+      }
+
+      setSlipModal({
+        open: true,
+        data: {
+          procurementId: proc?._id || targetProcId,
+          slipNumber: proc?.slipNumber || `SLIP-2026-${Math.floor(100000 + Math.random() * 900000)}`,
+          token: booking.token,
+          bookingId: booking.bookingId || booking._id,
+          farmerName: booking.farmerId?.name,
+          farmerMobile: booking.farmerId?.mobile,
+          kisanId: booking.farmerId?.kisanId || 'KID-VERIFIED',
+          maskedAadhaar: booking.farmerId?.maskedAadhaar || 'XXXX-XXXX-8492',
+          district: data?.centre?.address?.district,
+          state: data?.centre?.address?.state,
+          centreName: data?.centre?.name,
+          cropName: booking.cropName || booking.cropId?.name || 'Wheat',
+          quantity: proc?.quantity || booking.quantity,
+          bookedQuantity: booking.quantity,
+          grade: proc?.grade || 'A',
+          moisture: proc?.moisture || '11.5%',
+          foreignMatter: proc?.foreignMatter || '0.5%',
+          pricePerUnit: proc?.pricePerUnit || booking.cropId?.mspPrice || 2275,
+          totalAmount: proc?.totalAmount || ((proc?.quantity || booking.quantity) * (booking.cropId?.mspPrice || 2275)),
+          qualityNotes: proc?.qualityNotes || 'FAQ Norms Passed',
+          completedAt: proc?.completedAt || booking.updatedAt,
+          officerApproved: proc?.officerApproved || booking.status === 'payment_processing' || booking.status === 'payment_completed',
+          officerApprovedAt: proc?.officerApprovedAt,
+          paymentStatus: proc?.officerApproved || booking.status === 'payment_processing' || booking.status === 'payment_completed' ? 'processing' : 'pending',
+        }
+      });
+    } catch (err) {
+      toast.error(extractError(err));
+    }
+  };
+
   const handleSaveProcurement = async (e) => {
     e.preventDefault();
     if (!procurementModal.booking?._id) {
@@ -170,23 +244,60 @@ const OfficerDashboard = () => {
       });
 
       const procId = procRes.data.data.procurement._id;
+      const actualQty = parseFloat(procurementModal.actualQuantity) || procurementModal.booking?.quantity;
+      const priceUnit = parseFloat(procurementModal.pricePerUnit) || 2275;
 
       // 2. Complete procurement with verified weight and grade
-      await procurementService.updateStatus(procId, {
+      const updateRes = await procurementService.updateStatus(procId, {
         status: 'completed',
         grade: procurementModal.grade,
-        quantity: parseFloat(procurementModal.actualQuantity),
-        pricePerUnit: parseFloat(procurementModal.pricePerUnit),
+        quantity: actualQty,
+        pricePerUnit: priceUnit,
         qualityNotes: procurementModal.qualityNotes,
+        moisture: procurementModal.moisture ? `${procurementModal.moisture}%` : '11.5%',
+        foreignMatter: '0.5%',
       });
+
+      const updatedProc = updateRes.data?.data?.procurement;
 
       // 3. Mark queue entry completed
       if (procurementModal.entry?.token) {
         await queueService.completeToken(procurementModal.entry.token, data.centre._id);
       }
 
-      showNotification(`Procurement completed for Token ${procurementModal.entry.token}! Direct payment generated.`);
+      showNotification(`Quality & Weighing Verified for Token ${procurementModal.entry.token}! Weight slip generated.`);
       setProcurementModal({ open: false, entry: null, booking: null, actualQuantity: '', grade: 'A', moisture: '', qualityNotes: '', pricePerUnit: '', totalAmount: 0 });
+
+      // Automatically open the generated slip modal
+      setSlipModal({
+        open: true,
+        data: {
+          procurementId: updatedProc?._id || procId,
+          slipNumber: updatedProc?.slipNumber || `SLIP-2026-${Math.floor(100000 + Math.random() * 900000)}`,
+          token: procurementModal.entry?.token || procurementModal.booking?.token,
+          bookingId: procurementModal.booking?.bookingId || procurementModal.booking?._id,
+          farmerName: procurementModal.booking?.farmerId?.name || procurementModal.entry?.farmerName,
+          farmerMobile: procurementModal.booking?.farmerId?.mobile,
+          kisanId: procurementModal.booking?.farmerId?.kisanId || 'KID-VERIFIED',
+          maskedAadhaar: procurementModal.booking?.farmerId?.maskedAadhaar || 'XXXX-XXXX-8492',
+          district: data?.centre?.address?.district,
+          state: data?.centre?.address?.state,
+          centreName: data?.centre?.name,
+          cropName: procurementModal.booking?.cropName || procurementModal.booking?.cropId?.name || 'Wheat',
+          quantity: actualQty,
+          bookedQuantity: procurementModal.booking?.quantity,
+          grade: procurementModal.grade,
+          moisture: procurementModal.moisture ? `${procurementModal.moisture}%` : '11.5%',
+          foreignMatter: '0.5%',
+          pricePerUnit: priceUnit,
+          totalAmount: actualQty * priceUnit,
+          qualityNotes: procurementModal.qualityNotes,
+          completedAt: new Date(),
+          officerApproved: false,
+          paymentStatus: 'pending',
+        }
+      });
+
       await fetchDashboard(true);
     } catch (err) {
       setError(extractError(err));
@@ -240,14 +351,14 @@ const OfficerDashboard = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full uppercase">
-                Active Mandi
+                {isQualityStaff ? 'Quality & Scale Station' : 'Active Mandi'}
               </span>
               <span className="text-xs text-gray-500 font-medium">
                 Daily Capacity: {centre?.dailyCapacity || 250} Qtl
               </span>
             </div>
-            <h1 className="text-2xl font-black text-gray-900 mt-1">{centre?.name}</h1>
-            <p className="text-xs text-gray-500">{centre?.address?.district}, {centre?.address?.state} • {centre?.address?.line1}</p>
+            <h1 className="text-2xl font-black text-gray-900 mt-1">{isQualityStaff ? `Grain Quality & Weighing — ${centre?.name || ''}` : centre?.name}</h1>
+            <p className="text-xs text-gray-500">{isQualityStaff ? 'Quality grade inspection (A/B/FAQ), moisture testing %, net scale weighing & procurement certification' : `${centre?.address?.district || ''}, ${centre?.address?.state || ''} • ${centre?.address?.line1 || ''}`}</p>
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
@@ -545,9 +656,12 @@ const OfficerDashboard = () => {
                         </button>
                       )}
                       {(b.status === 'procurement_completed' || b.status === 'payment_processing' || b.status === 'payment_completed') && (
-                        <span className="text-emerald-600 font-bold flex items-center justify-end gap-1 text-[11px]">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Done
-                        </span>
+                        <button
+                          onClick={() => openSlipForBooking(b)}
+                          className="px-3 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs transition flex items-center justify-end gap-1 ml-auto shadow-xs"
+                        >
+                          <FileText className="w-3.5 h-3.5" /> View Weight Slip
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -557,14 +671,24 @@ const OfficerDashboard = () => {
           </div>
         </div>
 
+        {/* Procurement Weight & Quality Slip Modal */}
+        <ProcurementSlipModal
+          isOpen={slipModal.open}
+          onClose={() => setSlipModal({ open: false, data: null })}
+          data={slipModal.data}
+          onForwardToPayment={handleForwardToPayment}
+          isForwarding={isForwarding}
+          userRole={user?.role}
+        />
+
         {/* Modal for Recording Procurement & Initializing Payment */}
         {procurementModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
             <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200">
               <div className="flex justify-between items-center border-b border-gray-100 pb-3">
                 <div>
-                  <h3 className="text-lg font-black text-gray-900">Record Grain Procurement</h3>
-                  <p className="text-xs text-gray-500">Token: <span className="font-mono font-bold text-primary-700">{procurementModal.entry?.token}</span></p>
+                  <h3 className="text-lg font-black text-gray-900">{isQualityStaff ? 'Grain Quality Inspection & Scale Weighing' : 'Record Grain Procurement'}</h3>
+                  <p className="text-xs text-gray-500">Token: <span className="font-mono font-bold text-primary-700">{procurementModal.entry?.token}</span> {isQualityStaff ? '• Record official moisture %, grade & weighed quantity' : ''}</p>
                 </div>
                 <button
                   onClick={() => setProcurementModal({ ...procurementModal, open: false })}

@@ -147,7 +147,7 @@ const LoginPage = () => {
       setLoginMode('farmer');
       setForm({ mobile: credentials.mobile, otp: '123456', employeeId: '', password: '' });
       setOtpSent(true);
-      setDemoOtp('123456');
+      setCurrentDemoOtp('123456');
     } else {
       setLoginMode('officer');
       setForm({ mobile: '', otp: '', employeeId: credentials.employeeId, password: credentials.password });

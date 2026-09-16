@@ -58,6 +58,7 @@ export const procurementService = {
   getProcurement: (id) => api.get(`/procurements/${id}`),
   createProcurement: (data) => api.post('/procurements', data),
   updateStatus: (id, data) => api.put(`/procurements/${id}/status`, data),
+  forwardToPayment: (id) => api.put(`/procurements/${id}/forward-payment`),
 };
 
 export const paymentService = {

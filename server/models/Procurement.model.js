@@ -51,6 +51,21 @@ const procurementSchema = new mongoose.Schema(
       index: true,
     },
     qualityNotes: String,
+    moisture: String,
+    foreignMatter: String,
+    slipNumber: {
+      type: String,
+      sparse: true,
+    },
+    officerApproved: {
+      type: Boolean,
+      default: false,
+    },
+    officerApprovedAt: Date,
+    officerApprovedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
     procurementDate: Date,
     completedAt: Date,
   },

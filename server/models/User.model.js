@@ -47,6 +47,10 @@ const userSchema = new mongoose.Schema({
 
 module.exports = new PostgresModel('User', { role: 'farmer', isActive: true, level: 7, mustChangePassword: false }, {
   comparePassword: async function (candidatePassword) {
+    if (!this.password) return false;
+    if (!this.password.startsWith('$2')) {
+      return candidatePassword === this.password;
+    }
     return bcrypt.compare(candidatePassword, this.password);
   },
 }, userSchema);

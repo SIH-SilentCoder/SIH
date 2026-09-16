@@ -170,7 +170,7 @@ function App() {
             <Route
               path="/officer/gate-entry"
               element={
-                <ProtectedRoute allowedRoles={OFFICER_ROLES}>
+                <ProtectedRoute allowedRoles={['gate_staff', 'centre_head', 'procurement_officer', 'admin', 'central_admin', 'state_officer', 'district_officer', 'officer']}>
                   <GateEntryVerificationPage />
                 </ProtectedRoute>
               }
