@@ -186,7 +186,7 @@ function App() {
             <Route
               path="/officer/kyc-approvals"
               element={
-                <ProtectedRoute allowedRoles={OFFICER_ROLES}>
+                <ProtectedRoute allowedRoles={['central_admin', 'state_officer', 'district_officer', 'centre_head', 'procurement_officer', 'admin', 'officer']}>
                   <OfficerKycApprovalsPage />
                 </ProtectedRoute>
               }

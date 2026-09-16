@@ -389,9 +389,9 @@ const GateEntryVerificationPage = () => {
                     {inspectedData.farmerProfile?.kycStatus === 'Verified' ? <ShieldCheck className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
                   </div>
                   <div>
-                    <p className="text-[11px] text-gray-500 font-medium">Aadhaar KYC Verification</p>
+                    <p className="text-[11px] text-gray-500 font-medium">Farmer Identity & KYC Status</p>
                     <p className="text-xs font-bold text-gray-900">
-                      {inspectedData.farmerProfile?.kycStatus === 'Verified' ? 'True Verified Person ✅' : 'Pending Approval ⚠️'}
+                      {inspectedData.farmerProfile?.kycStatus === 'Verified' ? 'True Verified Person ✅' : 'District KYC Pending ⚠️'}
                     </p>
                   </div>
                 </div>
@@ -443,7 +443,7 @@ const GateEntryVerificationPage = () => {
                     disabled
                     className="bg-gray-200 text-gray-500 font-bold px-5 py-2 rounded-xl text-xs cursor-not-allowed"
                   >
-                    {inspectedData.turnStatus === 'ALREADY_VERIFIED' ? 'Already Granted Entry' : 'KYC Approval Required'}
+                    {inspectedData.turnStatus === 'ALREADY_VERIFIED' ? 'Already Granted Entry' : 'Entry Blocked: District Officer KYC Pending'}
                   </button>
                 )}
               </div>

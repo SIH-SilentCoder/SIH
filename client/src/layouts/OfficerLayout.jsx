@@ -15,10 +15,43 @@ const OfficerLayout = ({ children }) => {
     navigate('/login');
   };
 
+  // Roles authorized to approve farmer KYC applications
+  const KYC_APPROVER_ROLES = [
+    'central_admin',
+    'state_officer',
+    'district_officer',
+    'centre_head',
+    'procurement_officer',
+    'admin',
+    'officer'
+  ];
+
+  // Roles authorized for gate entry scanning
+  const GATE_ENTRY_ROLES = [
+    'gate_staff',
+    'centre_head',
+    'procurement_officer',
+    'admin',
+    'central_admin',
+    'state_officer',
+    'district_officer',
+    'officer'
+  ];
+
+  const dashboardLabel = user?.role === 'quality_staff'
+    ? 'Quality & Weighing Station'
+    : user?.role === 'gate_staff'
+    ? 'Gate & Queue Overview'
+    : 'Dashboard & Queue';
+
   const navItems = [
-    { to: '/officer/dashboard', icon: LayoutDashboard, label: 'Dashboard & Queue' },
-    { to: '/officer/gate-entry', icon: QrCode, label: 'Gate Entry & Scan' },
-    { to: '/officer/kyc-approvals', icon: UserCheck, label: 'Farmer KYC Approvals' },
+    { to: '/officer/dashboard', icon: LayoutDashboard, label: dashboardLabel },
+    ...(GATE_ENTRY_ROLES.includes(user?.role)
+      ? [{ to: '/officer/gate-entry', icon: QrCode, label: 'Gate Entry & Scan' }]
+      : []),
+    ...(KYC_APPROVER_ROLES.includes(user?.role) || (user?.level && user?.level <= 3)
+      ? [{ to: '/officer/kyc-approvals', icon: UserCheck, label: 'Farmer KYC Approvals' }]
+      : []),
     { to: '/officer/bookings', icon: ClipboardList, label: "Today's Bookings" },
     // Show staff management for Centre Heads and higher
     ...(CREATOR_ROLES.includes(user?.role) || user?.level <= 4
