@@ -5,9 +5,9 @@ import { useAuth } from './AuthContext';
 const SocketContext = createContext(null);
 
 const configuredSocketUrl = import.meta.env.VITE_SOCKET_URL;
-const SOCKET_URL = import.meta.env.PROD
-  ? 'https://sih-duw3.vercel.app'
-  : configuredSocketUrl || 'http://localhost:5000';
+const SOCKET_URL = configuredSocketUrl || (import.meta.env.PROD
+  ? 'https://kisanconnectserver.vercel.app'
+  : 'http://localhost:5000');
 
 export const SocketProvider = ({ children }) => {
   const { user, isAuthenticated } = useAuth();

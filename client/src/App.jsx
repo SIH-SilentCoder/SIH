@@ -42,6 +42,7 @@ import PaymentsMonitoringPage from './pages/admin/PaymentsMonitoringPage';
 import AlertsPage from './pages/admin/AlertsPage';
 import SettingsHelpPage from './pages/admin/SettingsHelpPage';
 import OrgStructurePage from './pages/admin/OrgStructurePage';
+import StateGovernancePage from './pages/admin/StateGovernancePage';
 import { OFFICER_ROLES, ADMIN_ROLES, CREATOR_ROLES } from './context/AuthContext';
 
 // 404 Page
@@ -320,6 +321,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={ADMIN_ROLES}>
                   <OrgStructurePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/state-governance"
+              element={
+                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                  <StateGovernancePage />
                 </ProtectedRoute>
               }
             />

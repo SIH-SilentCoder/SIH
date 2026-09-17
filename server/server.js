@@ -30,14 +30,37 @@ const stateProposalRoutes = require('./routes/stateProposal.routes');
 
 const app = express();
 const server = http.createServer(app);
-const allowedOrigins = new Set([
+const envClientUrls = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((url) => url.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+
+const staticAllowedOrigins = new Set([
   'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'https://kisanconnect.ankur007.me',
+  'https://kisanconnectserver.vercel.app',
   'https://sih-omega-three.vercel.app',
-  process.env.CLIENT_URL,
-].filter(Boolean));
+  'https://sih-duw3.vercel.app',
+  ...envClientUrls,
+]);
+
 const corsOrigin = (origin, callback) => {
-  if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-  return callback(new Error('Origin is not allowed by CORS'));
+  if (!origin) return callback(null, true);
+
+  const cleanOrigin = origin.replace(/\/$/, '');
+
+  if (
+    staticAllowedOrigins.has(cleanOrigin) ||
+    cleanOrigin.endsWith('.ankur007.me') ||
+    cleanOrigin.endsWith('.vercel.app')
+  ) {
+    return callback(null, true);
+  }
+
+  console.warn(`[CORS Blocked] Origin: ${origin}`);
+  return callback(null, false);
 };
 
 // Socket.IO
@@ -63,9 +86,11 @@ app.use(
   cors({
     origin: corsOrigin,
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   })
 );
+app.options('*', cors());
 
 // Parsing middleware
 app.use(express.json({ limit: '10mb' }));

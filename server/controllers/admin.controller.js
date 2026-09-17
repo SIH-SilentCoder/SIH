@@ -7,10 +7,11 @@ const Procurement = require('../models/Procurement.model');
 const Payment = require('../models/Payment.model');
 const Slot = require('../models/Slot.model');
 const Crop = require('../models/Crop.model');
+const State = require('../models/State.model');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { startOfDay, endOfDay } = require('../utils/helpers');
-const { ROLES, OFFICER_ROLES, ROLE_LABELS } = require('../utils/roleHierarchy');
+const { ROLES, OFFICER_ROLES, ROLE_LABELS, generateEmployeeId } = require('../utils/roleHierarchy');
 
 // GET /api/admin/dashboard
 const getAdminDashboard = async (req, res, next) => {
@@ -395,6 +396,95 @@ const toggleFarmerStatus = async (req, res, next) => {
   }
 };
 
+// POST /api/admin/states
+const createState = async (req, res, next) => {
+  try {
+    const { name, code, zone, nodalHeadName, nodalHeadMobile, nodalHeadEmail, description } = req.body;
+    if (!name || !code) throw new ApiError(400, 'State name and code are required.');
+
+    const existing = await State.findOne({ $or: [{ name }, { code }] });
+    if (existing) throw new ApiError(409, 'A state with this name or code already exists.');
+
+    const stateRecord = await State.create({
+      name,
+      code: code.toUpperCase(),
+      zone: zone || 'North',
+      nodalHeadName,
+      nodalHeadMobile,
+      nodalHeadEmail,
+      description,
+      isActive: true,
+    });
+
+    res.status(201).json(new ApiResponse(201, { state: stateRecord }, 'State added to national network successfully.'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /api/admin/states
+const getStates = async (req, res, next) => {
+  try {
+    const states = await State.find().sort({ name: 1 });
+
+    const result = await Promise.all(
+      states.map(async (st) => {
+        const officerCount = await User.countDocuments({ state: new RegExp(`^${st.name}$`, 'i'), role: { $in: OFFICER_ROLES } });
+        const centreCount = await ProcurementCentre.countDocuments({ state: new RegExp(`^${st.name}$`, 'i') });
+        return {
+          ...st.toObject(),
+          officerCount,
+          centreCount,
+        };
+      })
+    );
+
+    res.json(new ApiResponse(200, { states: result }));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/admin/state-officers
+const createStateOfficer = async (req, res, next) => {
+  try {
+    const { name, mobile, email, password, state, department, departmentRole, designation } = req.body;
+    if (!name || !mobile || !state) throw new ApiError(400, 'Officer name, mobile, and state are required.');
+
+    const existing = await User.findOne({ mobile });
+    if (existing) throw new ApiError(409, 'This mobile number is already registered.');
+
+    const count = await User.countDocuments({ role: ROLES.STATE_OFFICER, state: new RegExp(`^${state}$`, 'i') });
+    const locationCode = (state.length >= 2 ? state.slice(0, 2) : 'ST').toUpperCase();
+    const empId = generateEmployeeId(ROLES.STATE_OFFICER, locationCode, count + 1);
+
+    const user = await User.create({
+      name,
+      mobile,
+      email,
+      password: password || 'Kisan@123',
+      role: ROLES.STATE_OFFICER,
+      level: 2,
+      state,
+      department: department || 'Administration & Nodal Department',
+      departmentRole: departmentRole || 'State Nodal Officer',
+      employeeId: empId,
+      isActive: true,
+      mustChangePassword: true,
+    });
+
+    const profile = await OfficerProfile.create({
+      userId: user._id,
+      employeeId: empId,
+      designation: designation || 'State Procurement / Nodal Officer',
+    });
+
+    res.status(201).json(new ApiResponse(201, { user, profile }, `State Officer account created for ${state} with Employee ID ${empId}.`));
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAdminDashboard,
   getFarmers,
@@ -409,4 +499,7 @@ module.exports = {
   updateCrop,
   getAnalytics,
   toggleFarmerStatus,
+  createState,
+  getStates,
+  createStateOfficer,
 };

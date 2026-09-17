@@ -2,7 +2,8 @@ import { useState } from 'react';
 import {
   ShieldCheck, Cpu, FileText, Headphones, CheckCircle2,
   ChevronRight, Layers, ShieldAlert,
-  Server, Database, Languages, MessageSquare, AlertTriangle
+  Server, Database, Languages, MessageSquare, AlertTriangle,
+  Landmark, Building2
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
 
@@ -104,6 +105,31 @@ const WING_DATA = [
         lead: 'Kavita Menon',
         icon: CheckCircle2,
         tasks: ['Immutable audit logs inspection', 'Aadhaar/KYC data privacy checks', 'Role-Based Access Control (RBAC) verification'],
+      },
+    ],
+  },
+  {
+    id: 'state_governance',
+    title: '5. National State Nodal Expansion Wing',
+    headRole: 'Director General (State Nodal Network)',
+    headName: 'Sh. Rajesh Kumar Verma, IAS',
+    icon: Landmark,
+    color: 'from-rose-600 to-red-800',
+    borderColor: 'border-rose-500/40',
+    badgeColor: 'bg-rose-100 text-rose-900',
+    stats: { teams: 2, staffCount: 34, statesManaged: 28, activeSPOs: 142 },
+    teams: [
+      {
+        name: 'State Network Provisioning Team',
+        lead: 'Smt. Ananya Sen',
+        icon: Building2,
+        tasks: ['Onboarding new States & Union Territories into Kisan Connect', 'Creating State Master database entries', 'State Nodal Officer (SPO) account provisioning'],
+      },
+      {
+        name: 'Inter-State Clearance Team',
+        lead: 'Dr. Vivek Swaminathan',
+        icon: FileText,
+        tasks: ['State-level proposal verification & central routing', 'State procurement quota approvals', 'SMS feedback & revision dispatch to State Officers'],
       },
     ],
   },

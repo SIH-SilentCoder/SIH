@@ -75,8 +75,19 @@ const NAV_SECTIONS = [
         to: '/admin/org-structure',
         icon: Landmark,
         label: 'Apex Org Hierarchy',
-        badge: 'New',
+        badge: 'Central',
         badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
+      {
+        to: '/admin/state-governance',
+        icon: Landmark,
+        label: 'State Expansion & Governance',
+        badge: 'New',
+        badgeColor: 'bg-rose-100 text-rose-800',
+        subItems: [
+          { to: '/admin/state-governance?tab=states', label: 'Managed States' },
+          { to: '/admin/state-governance?tab=officers', label: 'State Officers (SPO)' },
+        ],
       },
       {
         to: '/admin/staff',

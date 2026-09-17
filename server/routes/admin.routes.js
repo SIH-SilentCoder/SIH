@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   getAdminDashboard, getFarmers, getAllBookings, createOfficer, getOfficers,
   createCentre, updateCentre, generateSlots, getCrops, createCrop, updateCrop,
-  getAnalytics, toggleFarmerStatus,
+  getAnalytics, toggleFarmerStatus, createState, getStates, createStateOfficer,
 } = require('../controllers/admin.controller');
 const { authenticate } = require('../middleware/auth.middleware');
 const { requireAdmin, requireOfficerOrAbove } = require('../middleware/role.middleware');
@@ -14,6 +14,9 @@ router.get('/farmers', getFarmers);
 router.put('/farmers/:id/toggle', toggleFarmerStatus);
 router.get('/officers', getOfficers);
 router.post('/officers', createOfficer);
+router.get('/states', getStates);
+router.post('/states', createState);
+router.post('/state-officers', createStateOfficer);
 router.get('/centres', (req, res) => {
   const ProcurementCentre = require('../models/ProcurementCentre.model');
   ProcurementCentre.find()
