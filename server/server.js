@@ -113,7 +113,6 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   })
 );
-app.options('*', cors());
 
 // Parsing middleware
 app.use(express.json({ limit: '10mb' }));
