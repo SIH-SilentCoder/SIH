@@ -11,6 +11,8 @@ const DATA_DIR = process.env.VERCEL
 const DB_FILE = path.join(DATA_DIR, 'local_db.json');
 let localDbData = {};
 
+const BUNDLED_DB_FILE = path.join(__dirname, '../data/local_db.json');
+
 function initLocalStorage() {
   try {
     if (!fs.existsSync(DATA_DIR)) {
@@ -19,13 +21,16 @@ function initLocalStorage() {
     if (fs.existsSync(DB_FILE)) {
       const content = fs.readFileSync(DB_FILE, 'utf-8');
       localDbData = JSON.parse(content || '{}');
-    } else {
-      localDbData = {};
+    } else if (fs.existsSync(BUNDLED_DB_FILE)) {
+      const content = fs.readFileSync(BUNDLED_DB_FILE, 'utf-8');
+      localDbData = JSON.parse(content || '{}');
       try {
         fs.writeFileSync(DB_FILE, JSON.stringify(localDbData, null, 2), 'utf-8');
       } catch (e) {
-        // Read-only filesystem fallback
+        // Read-only filesystem
       }
+    } else {
+      localDbData = {};
     }
   } catch (err) {
     localDbData = {};

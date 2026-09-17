@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const ApiError = require('../utils/ApiError');
 const User = require('../models/User.model');
 
+const JWT_SECRET = process.env.JWT_SECRET || 'kisan-secret-key-change-this-in-production-2026';
+
 const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -16,7 +18,7 @@ const authenticate = async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      decoded = jwt.verify(token, JWT_SECRET);
     } catch (err) {
       if (err.name === 'TokenExpiredError') {
         throw new ApiError(401, 'Your session has expired. Please login again.');
@@ -43,7 +45,7 @@ const authenticate = async (req, res, next) => {
 const generateTokens = (userId, role) => {
   const accessToken = jwt.sign(
     { userId, role },
-    process.env.JWT_SECRET,
+    JWT_SECRET,
     { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
   return { accessToken };

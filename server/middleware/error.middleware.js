@@ -1,6 +1,6 @@
 const ApiError = require('../utils/ApiError');
 
-// Global error handler — never expose stack traces to users
+// Global error handler — ensures CORS headers are always sent on error responses
 const errorHandler = (err, req, res, next) => {
   let error = err;
 
@@ -14,16 +14,18 @@ const errorHandler = (err, req, res, next) => {
     error = new ApiError(400, 'Validation failed', messages);
   }
 
-
   const statusCode = error.statusCode || 500;
-  const message =
-    statusCode === 500
-      ? 'An unexpected error occurred. Please try again.'
-      : error.message;
+  const message = error.message || 'An unexpected error occurred. Please try again.';
 
-  // Log server errors for debugging (not exposed to client)
   if (statusCode >= 500) {
     console.error('❌ Server Error:', err);
+  }
+
+  // Ensure CORS headers are attached to error responses
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
 
   res.status(statusCode).json({
@@ -36,6 +38,11 @@ const errorHandler = (err, req, res, next) => {
 
 // 404 handler
 const notFound = (req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
   next(new ApiError(404, `Route ${req.originalUrl} not found`));
 };
 
