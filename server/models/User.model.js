@@ -39,13 +39,21 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ProcurementCentre',
   },
+  department: {
+    type: String,
+    trim: true,
+  },
+  departmentRole: {
+    type: String,
+    trim: true,
+  },
   mustChangePassword: {
     type: Boolean,
     default: false,
   },
 }, { timestamps: true });
 
-module.exports = new PostgresModel('User', { role: 'farmer', isActive: true, level: 7, mustChangePassword: false }, {
+module.exports = new PostgresModel('User', { role: 'farmer', isActive: true, level: 7, mustChangePassword: false, department: 'General', departmentRole: 'Officer' }, {
   comparePassword: async function (candidatePassword) {
     if (!this.password) return false;
     if (!this.password.startsWith('$2')) {

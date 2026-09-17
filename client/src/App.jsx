@@ -24,6 +24,7 @@ import OfficerDashboard from './pages/officer/OfficerDashboard';
 import OfficerBookingsPage from './pages/officer/OfficerBookingsPage';
 import OfficerKycApprovalsPage from './pages/officer/OfficerKycApprovalsPage';
 import GateEntryVerificationPage from './pages/officer/GateEntryVerificationPage';
+import StateDepartmentPage from './pages/officer/StateDepartmentPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -197,6 +198,14 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={OFFICER_ROLES}>
                   <StaffManagementPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/state/department-proposals"
+              element={
+                <ProtectedRoute allowedRoles={OFFICER_ROLES}>
+                  <StateDepartmentPage />
                 </ProtectedRoute>
               }
             />

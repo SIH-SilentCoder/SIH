@@ -143,4 +143,11 @@ module.exports = {
   canCreate,
   isAtOrAboveLevel,
   isOfficerRole,
+  STATE_DEPARTMENTS: [
+    { id: 'agriculture', name: 'Agriculture & Crop Management', code: 'AGR' },
+    { id: 'procurement', name: 'Procurement & Mandi Board', code: 'PRC' },
+    { id: 'logistics', name: 'Logistics & Warehousing', code: 'LOG' },
+    { id: 'quality', name: 'Quality Assurance & Inspection', code: 'QA' },
+    { id: 'admin', name: 'Administration & Nodal Department', code: 'ADM' },
+  ],
 };

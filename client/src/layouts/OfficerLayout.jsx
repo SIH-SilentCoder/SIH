@@ -57,6 +57,9 @@ const OfficerLayout = ({ children }) => {
     ...(CREATOR_ROLES.includes(user?.role) || user?.level <= 4
       ? [{ to: '/officer/staff', icon: Users, label: 'Staff Management' }]
       : []),
+    ...(user?.role === 'state_officer' || user?.role === 'central_admin' || (user?.level && user?.level <= 2)
+      ? [{ to: '/state/department-proposals', icon: Shield, label: 'State Proposals & Approvals' }]
+      : []),
   ];
 
   const Sidebar = () => (

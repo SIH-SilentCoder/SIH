@@ -26,6 +26,7 @@ const adminRoutes = require('./routes/admin.routes');
 const cropRoutes = require('./routes/crop.routes');
 const staffRoutes = require('./routes/staff.routes');
 const aiRoutes = require('./routes/ai.routes');
+const stateProposalRoutes = require('./routes/stateProposal.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -109,6 +110,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/crops', cropRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/state-proposals', stateProposalRoutes);
 
 // 404 and error handlers
 app.use(notFound);
