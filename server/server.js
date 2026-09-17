@@ -80,6 +80,29 @@ app.set('io', io);
 // Connect DB
 connectDB();
 
+// Explicit CORS header middleware for Vercel serverless / edge compatibility
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (
+    origin &&
+    (staticAllowedOrigins.has(origin.replace(/\/$/, '')) ||
+      origin.endsWith('.ankur007.me') ||
+      origin.endsWith('.vercel.app'))
+  ) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, X-Requested-With, Accept'
+    );
+  }
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Security middleware
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(

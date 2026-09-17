@@ -3,7 +3,11 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, '../data');
+const os = require('os');
+
+const DATA_DIR = process.env.VERCEL
+  ? path.join(os.tmpdir(), 'kisan_data')
+  : path.join(__dirname, '../data');
 const DB_FILE = path.join(DATA_DIR, 'local_db.json');
 let localDbData = {};
 
@@ -17,7 +21,11 @@ function initLocalStorage() {
       localDbData = JSON.parse(content || '{}');
     } else {
       localDbData = {};
-      fs.writeFileSync(DB_FILE, JSON.stringify(localDbData, null, 2), 'utf-8');
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(localDbData, null, 2), 'utf-8');
+      } catch (e) {
+        // Read-only filesystem fallback
+      }
     }
   } catch (err) {
     localDbData = {};
@@ -31,7 +39,7 @@ function saveLocalDb() {
     }
     fs.writeFileSync(DB_FILE, JSON.stringify(localDbData, null, 2), 'utf-8');
   } catch (err) {
-    // silent
+    // Silent catch for read-only filesystem environments
   }
 }
 
