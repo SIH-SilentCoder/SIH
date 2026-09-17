@@ -72,6 +72,13 @@ const NAV_SECTIONS = [
     title: 'Governance & Oversight',
     items: [
       {
+        to: '/admin/org-structure',
+        icon: Landmark,
+        label: 'Apex Org Hierarchy',
+        badge: 'New',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
+      {
         to: '/admin/staff',
         icon: UserCog,
         label: 'Officers & Administration',
