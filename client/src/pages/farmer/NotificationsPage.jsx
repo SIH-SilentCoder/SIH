@@ -18,6 +18,9 @@ import {
   FaCoins,
   FaTimesCircle,
   FaClipboardList,
+  FaIdCard,
+  FaShieldAlt,
+  FaExclamationCircle,
 } from 'react-icons/fa';
 
 const notifIcons = {
@@ -29,6 +32,9 @@ const notifIcons = {
   payment_processing: <FaLandmark className="text-sky-600 w-5 h-5" />,
   payment_completed: <FaCoins className="text-green-600 w-5 h-5" />,
   booking_cancelled: <FaTimesCircle className="text-red-600 w-5 h-5" />,
+  kyc_submitted: <FaIdCard className="text-blue-600 w-5 h-5" />,
+  kyc_approved: <FaShieldAlt className="text-emerald-600 w-5 h-5" />,
+  kyc_rejected: <FaExclamationCircle className="text-red-600 w-5 h-5" />,
   general: <FaClipboardList className="text-gray-600 w-5 h-5" />,
 };
 

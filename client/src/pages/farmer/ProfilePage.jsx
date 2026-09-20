@@ -32,7 +32,9 @@ const ProfilePage = () => {
         ]);
         const p = profileRes.data.data.profile;
         setProfile(p);
-        setCrops(cropsRes.data.data.crops);
+        // Handle both response structures: data.data.crops or data.data
+        const cropsData = cropsRes.data?.data?.crops || cropsRes.data?.data || [];
+        setCrops(Array.isArray(cropsData) ? cropsData : []);
         setForm({
           state: p.state || '',
           district: p.district || '',
@@ -42,7 +44,7 @@ const ProfilePage = () => {
         });
         setMyCrops(p.crops?.map((c) => ({
           cropId: c.cropId?._id || c.cropId,
-          cropName: c.cropName,
+          cropName: c.cropName || c.cropId?.name || '',
           estimatedQuantity: c.estimatedQuantity,
         })) || []);
       } catch (err) {

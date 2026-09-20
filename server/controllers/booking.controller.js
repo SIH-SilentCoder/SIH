@@ -1,15 +1,8 @@
-const mongoose = {
-  startSession: async () => ({
-    startTransaction() {},
-    async commitTransaction() {},
-    async abortTransaction() {},
-    endSession() {},
-  }),
-};
 const Booking = require('../models/Booking.model');
 const Slot = require('../models/Slot.model');
 const QueueEntry = require('../models/QueueEntry.model');
 const ProcurementCentre = require('../models/ProcurementCentre.model');
+const Procurement = require('../models/Procurement.model');
 const Payment = require('../models/Payment.model');
 const FarmerProfile = require('../models/FarmerProfile.model');
 const ApiError = require('../utils/ApiError');
@@ -18,10 +11,8 @@ const { generateBookingId, generateToken } = require('../utils/helpers');
 const { getNextTokenNumber } = require('../services/queue.service');
 const notificationService = require('../services/notification/NotificationService');
 
-// POST /api/bookings - Create booking (atomic)
+// POST /api/bookings - Create booking
 const createBooking = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const { slotId, cropId, cropName, quantity, unit } = req.body;
     const farmerId = req.user._id;
@@ -33,7 +24,7 @@ const createBooking = async (req, res, next) => {
     }
 
     // Strict KYC Approval Enforcer: Slot booking requires District Procurement Officer approval
-    const farmerProfile = await FarmerProfile.findOne({ userId: farmerId }).session(session);
+    const farmerProfile = await FarmerProfile.findOne({ userId: farmerId });
 
     if (!farmerProfile || !farmerProfile.aadhaarVerified) {
       throw new ApiError(
@@ -58,8 +49,8 @@ const createBooking = async (req, res, next) => {
 
     const cleanCropId = cropId?._id || cropId;
 
-    // 1. Lock and fetch slot
-    const slot = await Slot.findById(slotId).session(session);
+    // 1. Fetch slot
+    const slot = await Slot.findById(slotId);
     if (!slot) throw new ApiError(404, 'Selected slot not found.');
     if (slot.status === 'full' || slot.booked >= slot.capacity) {
       throw new ApiError(409, 'This slot is now full. Please choose another slot.');
@@ -70,7 +61,7 @@ const createBooking = async (req, res, next) => {
       farmerId,
       slotId,
       status: { $ne: 'cancelled' },
-    }).session(session);
+    });
     if (existingBooking) {
       throw new ApiError(409, 'You already have an active booking for this time slot. Please choose another time slot or date.');
     }
@@ -86,14 +77,14 @@ const createBooking = async (req, res, next) => {
       centreId: slot.centreId,
       bookingDate: { $gte: dayStart, $lte: dayEnd },
       status: { $nin: ['cancelled'] },
-    }).session(session);
+    });
     if (existingDayBooking) {
       const formattedDate = new Date(slot.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
       throw new ApiError(409, `You already have an active booking at this centre on ${formattedDate}. You can reserve one slot per centre per day.`);
     }
 
-    // 4. Get centre to verify crop eligibility
-    const centre = await ProcurementCentre.findById(slot.centreId).session(session);
+    // 4. Get centre to verify it is active
+    const centre = await ProcurementCentre.findById(slot.centreId);
     if (!centre || !centre.isActive) throw new ApiError(404, 'Procurement centre not found.');
 
     // 5. Get next token number for this centre/day
@@ -102,69 +93,58 @@ const createBooking = async (req, res, next) => {
     const bookingId = generateBookingId();
 
     // 6. Create booking
-    const booking = await Booking.create(
-      [
-        {
-          bookingId,
-          farmerId,
-          centreId: slot.centreId,
-          slotId,
-          cropId: cleanCropId,
-          cropName,
-          quantity,
-          unit: unit || 'quintal',
-          token,
-          bookingDate: slot.date,
-          slotStartTime: slot.startTime,
-          slotEndTime: slot.endTime,
-          status: 'booked',
-        },
-      ],
-      { session }
-    );
+    const newBookingData = {
+      bookingId,
+      farmerId,
+      centreId: slot.centreId,
+      slotId,
+      cropId: cleanCropId,
+      cropName,
+      quantity,
+      unit: unit || 'quintal',
+      token,
+      bookingDate: slot.date,
+      slotStartTime: slot.startTime,
+      slotEndTime: slot.endTime,
+      status: 'booked',
+    };
+    const booking = await Booking.create(newBookingData);
 
-    // 7. Atomically increment slot.booked
+    // 7. Increment slot.booked
     const updatedSlot = await Slot.findByIdAndUpdate(
       slotId,
       { $inc: { booked: 1 } },
-      { new: true, session }
+      { new: true }
     );
-    // Re-check capacity after increment
-    if (updatedSlot.booked >= updatedSlot.capacity) {
+    // Mark slot as full if needed
+    if (updatedSlot && updatedSlot.booked >= updatedSlot.capacity) {
       updatedSlot.status = 'full';
-      await updatedSlot.save({ session });
+      await updatedSlot.save();
     }
 
     // 8. Create queue entry
-    await QueueEntry.create(
-      [
-        {
-          bookingId: booking[0]._id,
-          farmerId,
-          centreId: slot.centreId,
-          slotId,
-          token,
-          position: tokenNum,
-          queueDate: slot.date,
-          status: 'waiting',
-        },
-      ],
-      { session }
-    );
-
-    await session.commitTransaction();
-    session.endSession();
+    await QueueEntry.create({
+      bookingId: booking._id,
+      farmerId,
+      centreId: slot.centreId,
+      slotId,
+      token,
+      position: tokenNum,
+      queueDate: slot.date,
+      status: 'waiting',
+    });
 
     // 9. Send confirmation notification (async, non-blocking)
-    const populatedBooking = await Booking.findById(booking[0]._id)
+    const populatedBooking = await Booking.findById(booking._id)
       .populate('centreId', 'name address district')
       .populate('cropId', 'name mspPrice unit');
 
-    notificationService.bookingConfirmed(farmerId, populatedBooking);
+    notificationService.bookingConfirmed(farmerId, populatedBooking).catch(() => {});
 
     // 10. Emit socket event
-    if (req.io) {
-      req.io.to(`centre:${slot.centreId}`).emit('queue:updated', {
+    const io = req.app?.get('io') || req.io;
+    if (io) {
+      io.to(`centre:${slot.centreId}`).emit('queue:updated', {
         centreId: slot.centreId,
         action: 'new_booking',
         token,
@@ -175,8 +155,6 @@ const createBooking = async (req, res, next) => {
       new ApiResponse(201, { booking: populatedBooking }, 'Booking confirmed! Your slot has been reserved.')
     );
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     next(error);
   }
 };
@@ -201,7 +179,7 @@ const getBookings = async (req, res, next) => {
     res.json(
       new ApiResponse(200, {
         bookings,
-        pagination: { page: Number(page), limit: Number(limit), total },
+        pagination: { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / limit) },
       })
     );
   } catch (error) {
@@ -236,12 +214,9 @@ const getBookingById = async (req, res, next) => {
 
 // PUT /api/bookings/:id/cancel
 const cancelBooking = async (req, res, next) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
   try {
     const booking = await Booking.findById(req.params.id)
-      .populate('centreId', 'cancellationCutoffHours')
-      .session(session);
+      .populate('centreId', 'cancellationCutoffHours name');
 
     if (!booking) throw new ApiError(404, 'Booking not found.');
 
@@ -274,36 +249,33 @@ const cancelBooking = async (req, res, next) => {
     booking.status = 'cancelled';
     booking.cancelledAt = new Date();
     booking.cancellationReason = req.body.reason || 'Cancelled by farmer';
-    await booking.save({ session });
+    await booking.save();
 
     // Release slot capacity
     await Slot.findByIdAndUpdate(
       booking.slotId,
       { $inc: { booked: -1 } },
-      { session }
+      { new: true }
     );
 
     // Update slot status back to available if it was full
-    const slot = await Slot.findById(booking.slotId).session(session);
+    const slot = await Slot.findById(booking.slotId);
     if (slot && slot.status === 'full' && slot.booked < slot.capacity) {
       slot.status = 'available';
-      await slot.save({ session });
+      await slot.save();
     }
 
     // Cancel queue entry
     await QueueEntry.findOneAndUpdate(
       { bookingId: booking._id },
-      { status: 'cancelled' },
-      { session }
+      { status: 'cancelled' }
     );
 
-    await session.commitTransaction();
-    session.endSession();
+    notificationService.bookingCancelled(booking.farmerId, booking).catch(() => {});
 
-    notificationService.bookingCancelled(booking.farmerId, booking);
-
-    if (req.io) {
-      req.io.to(`centre:${booking.centreId}`).emit('queue:updated', {
+    const io = req.app?.get('io') || req.io;
+    if (io) {
+      io.to(`centre:${booking.centreId}`).emit('queue:updated', {
         centreId: booking.centreId,
         action: 'booking_cancelled',
         token: booking.token,
@@ -312,8 +284,6 @@ const cancelBooking = async (req, res, next) => {
 
     res.json(new ApiResponse(200, { booking }, 'Booking cancelled successfully.'));
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
     next(error);
   }
 };

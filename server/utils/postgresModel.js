@@ -452,16 +452,39 @@ class PostgresModel {
 
   async _populate(document, path) {
     if (!document) return document;
+
+    // Handle nested paths like 'crops.cropId' (array field with nested ref)
+    if (path.includes('.')) {
+      const [arrayField, nestedKey] = path.split('.');
+      const array = getPath(document, arrayField);
+      if (Array.isArray(array)) {
+        const modelName = associationMap[nestedKey] || associationMap[nestedKey.replace(/s$/, '')];
+        if (modelName) {
+          const target = registry.get(modelName);
+          if (target) {
+            for (const item of array) {
+              if (item && item[nestedKey]) {
+                const populated = await target.findById(item[nestedKey]);
+                if (populated) item[nestedKey] = populated;
+              }
+            }
+          }
+        }
+      }
+      return document;
+    }
+
     const modelName = associationMap[path] || associationMap[path.replace(/s$/, '')];
     if (!modelName) return document;
     const target = registry.get(modelName);
     if (!target) return document;
     const value = getPath(document, path);
     const values = Array.isArray(value) ? value : [value];
-    const populated = await Promise.all(values.filter(Boolean).map((id) => target.findById(id)));
+    const populated = await Promise.all(values.filter(Boolean).map((id) => target.findById(idValue(id))));
     setPath(document, path, Array.isArray(value) ? populated.filter(Boolean) : populated[0] || value);
     return document;
   }
+
 
   async aggregate(pipeline) {
     let rows = await this._all();

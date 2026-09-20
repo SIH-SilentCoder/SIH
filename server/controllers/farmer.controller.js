@@ -99,6 +99,7 @@ const getProcurementHistory = async (req, res, next) => {
 const aadhaarService = require('../services/aadhaar/AadhaarService');
 const smsService = require('../services/sms/SMSService');
 const otpManager = require('../services/sms/OtpManager');
+const notificationService = require('../services/notification/NotificationService');
 
 // POST /api/farmers/aadhaar/send-otp — Request official UIDAI OTP via authorized provider
 const sendAadhaarOtp = async (req, res, next) => {
@@ -362,8 +363,12 @@ const submitKyc = async (req, res, next) => {
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
-    // Send mandatory KYC submission SMS to farmer's verified mobile number
-    await smsService.sendKycConfirmation(req.user.mobile);
+    // Send KYC submission notification and SMS
+    try {
+      await notificationService.kycSubmitted(req.user._id, req.user.mobile);
+    } catch (notifErr) {
+      console.warn('[Farmer Controller] Notification dispatch error for KYC submit:', notifErr.message);
+    }
 
     res.json(
       new ApiResponse(200, {

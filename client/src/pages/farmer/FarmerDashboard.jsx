@@ -50,7 +50,7 @@ const FarmerDashboard = () => {
           notificationService.getNotifications({ limit: 5, unreadOnly: 'true' }),
           farmerService.getKycStatus().catch(() => ({ data: { data: null } })),
         ]);
-        const allBookings = bookingsRes.data.data.bookings;
+        const allBookings = bookingsRes.data?.data?.bookings || [];
         setBookings(allBookings);
         setKycData(kycRes.data?.data || null);
 
@@ -60,7 +60,8 @@ const FarmerDashboard = () => {
         );
         setActiveBooking(active || allBookings[0] || null);
 
-        setNotifications(notifRes.data.data.notifications);
+        const notifs = notifRes.data?.data?.notifications || [];
+        setNotifications(notifs);
       } catch (err) {
         toast.error(extractError(err));
       } finally {

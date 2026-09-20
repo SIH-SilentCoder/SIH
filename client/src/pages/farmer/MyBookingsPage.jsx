@@ -33,8 +33,8 @@ const MyBookingsPage = () => {
     setLoading(true);
     try {
       const res = await bookingService.getBookings({ status: statusFilter || undefined, page, limit: 10 });
-      setBookings(res.data.data.bookings);
-      setPagination(res.data.data.pagination);
+      setBookings(res.data?.data?.bookings || []);
+      setPagination(res.data?.data?.pagination || {});
     } catch (err) {
       toast.error(extractError(err));
     } finally {
