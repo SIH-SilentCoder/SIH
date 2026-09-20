@@ -77,8 +77,11 @@ const io = new Server(server, {
 // Make io accessible in routes
 app.set('io', io);
 
-// Connect DB
-connectDB();
+// Connect DB — on Vercel this is awaited per-request in api/index.js to avoid race conditions.
+// In local/non-serverless environments we connect eagerly at startup.
+if (!process.env.VERCEL) {
+  connectDB();
+}
 
 // Explicit CORS header middleware for Vercel serverless / edge compatibility
 app.use((req, res, next) => {
