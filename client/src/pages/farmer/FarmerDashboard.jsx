@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Calendar, Ticket, MapPin, Clock, Users, CreditCard, ArrowRight,
-  Plus, Bell, CheckCircle, AlertCircle, Package, ShieldCheck, Sparkles
+  Plus, Bell, CheckCircle, AlertCircle, Package, ShieldCheck, Sparkles, Bot
 } from 'lucide-react';
 import { FaHandPaper } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
