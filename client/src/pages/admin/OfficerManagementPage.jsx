@@ -1,33 +1,82 @@
 import { useState, useEffect } from 'react';
 import {
-  UserCog, Plus, Search, Shield, Building2, Phone, Mail, CheckCircle2,
-  RefreshCw, Lock, BadgeCheck
+  UserPlus, Search, RefreshCw, ChevronDown, ChevronUp, Eye, EyeOff,
+  Shield, Building2, AlertCircle, CheckCircle, User, Phone, Mail, Briefcase
 } from 'lucide-react';
-import { IoClose } from 'react-icons/io5';
-import AdminLayout from '../../layouts/AdminLayout';
 import { adminService } from '../../services';
-import { formatDate, extractError } from '../../utils/constants';
+import { extractError } from '../../utils/constants';
+import AdminLayout from '../../layouts/AdminLayout';
+import Button from '../../components/common/Button';
+import Input, { Select } from '../../components/common/Input';
+import { TableSkeleton } from '../../components/common/Spinner';
+import EmptyState from '../../components/common/EmptyState';
+import Badge from '../../components/common/Badge';
+import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
+
+import { INDIAN_STATES, STATE_DISTRICTS } from '../../utils/locations';
+
+// Role hierarchy for appointment
+const APPOINTABLE_ROLES = {
+  central_admin: [
+    { value: 'state_officer', label: 'State Nodal Officer (SPO)' },
+  ],
+  state_officer: [
+    { value: 'district_officer', label: 'District Nodal Officer (DNO)' },
+  ],
+  district_officer: [
+    { value: 'centre_head', label: 'Procurement Centre Head (PCH)' },
+  ],
+  centre_head: [
+    { value: 'procurement_officer', label: 'Procurement Officer (PO)' },
+    { value: 'quality_staff', label: 'Quality & Weighing Staff (QWS)' },
+    { value: 'data_staff', label: 'Data / System Staff (DSS)' },
+    { value: 'gate_staff', label: 'Gate / Verification Staff (GVS)' },
+  ],
+};
+
+const ROLE_BADGE = {
+  central_admin: 'bg-purple-100 text-purple-700',
+  state_officer: 'bg-blue-100 text-blue-700',
+  district_officer: 'bg-indigo-100 text-indigo-700',
+  centre_head: 'bg-green-100 text-green-700',
+  procurement_officer: 'bg-teal-100 text-teal-700',
+  quality_staff: 'bg-amber-100 text-amber-700',
+  data_staff: 'bg-sky-100 text-sky-700',
+  gate_staff: 'bg-rose-100 text-rose-700',
+};
+
+const ROLE_LABEL = {
+  central_admin: 'Central Admin',
+  state_officer: 'State Officer',
+  district_officer: 'District Officer',
+  centre_head: 'Centre Head',
+  procurement_officer: 'Procurement Officer',
+  quality_staff: 'Quality Staff',
+  data_staff: 'Data Staff',
+  gate_staff: 'Gate Staff',
+};
 
 const OfficerManagementPage = () => {
+  const { user } = useAuth();
   const [officers, setOfficers] = useState([]);
   const [centres, setCentres] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [lastCreated, setLastCreated] = useState(null);
 
-  // Modal State
-  const [modalOpen, setModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    mobile: '',
-    email: '',
-    password: '',
-    centreId: '',
-    employeeId: '',
-    designation: 'Procurement Officer',
+  const appointableRoles = APPOINTABLE_ROLES[user?.role] || [];
+
+  const [form, setForm] = useState({
+    name: '', mobile: '', email: '', role: appointableRoles[0]?.value || '',
+    centreId: '', designation: '', district: user?.district || '', state: user?.state || '',
   });
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -36,293 +85,211 @@ const OfficerManagementPage = () => {
         adminService.getOfficers(),
         adminService.getCentres(),
       ]);
-      setOfficers(officersRes.data.data.officers || []);
-      setCentres(centresRes.data.data.centres || []);
-      setError('');
+      setOfficers(officersRes.data?.data?.officers || []);
+      setCentres(centresRes.data?.data?.centres || []);
     } catch (err) {
-      setError(extractError(err));
+      toast.error(extractError(err));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const handleCreateOfficer = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
+    if (!form.name || !form.mobile || !form.role) {
+      toast.error('Please fill all required fields.');
+      return;
+    }
+    setSaving(true);
     try {
-      await adminService.createOfficer(formData);
-      setMsg(`Procurement Officer "${formData.name}" created successfully.`);
-      setTimeout(() => setMsg(''), 4000);
-      setModalOpen(false);
-      setFormData({
-        name: '',
-        mobile: '',
-        email: '',
-        password: '',
-        centreId: '',
-        employeeId: '',
-        designation: 'Procurement Officer',
-      });
+      const res = await adminService.appointOfficer(form);
+      const data = res.data?.data;
+      setLastCreated(data);
+      toast.success(`Officer appointed! Employee ID: ${data?.employeeId}`);
+      setShowForm(false);
+      setForm({ name: '', mobile: '', email: '', role: appointableRoles[0]?.value || '', centreId: '', designation: '', district: user?.district || '', state: user?.state || '' });
       fetchData();
     } catch (err) {
-      setError(extractError(err));
+      toast.error(extractError(err));
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
-  const filteredOfficers = officers.filter(({ user, profile }) => {
-    if (!search) return true;
-    const term = search.toLowerCase();
+  const filtered = officers.filter((o) => {
+    const q = search.toLowerCase();
     return (
-      user.name?.toLowerCase().includes(term) ||
-      user.mobile?.includes(term) ||
-      profile?.centreId?.name?.toLowerCase().includes(term) ||
-      profile?.employeeId?.toLowerCase().includes(term)
+      o.user?.name?.toLowerCase().includes(q) ||
+      o.user?.mobile?.includes(q) ||
+      o.profile?.employeeId?.toLowerCase().includes(q)
     );
   });
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-gray-900">Procurement Officers</h1>
-            <p className="text-xs text-gray-500">Mandi field personnel assigned to queue management and quality grading</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={fetchData}
-              className="p-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl transition flex items-center gap-2 text-xs font-semibold"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Refresh
-            </button>
-            <button
-              onClick={() => setModalOpen(true)}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              Add Officer
-            </button>
-          </div>
+      <div className="page-header flex items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title">Officer Management</h1>
+          <p className="page-subtitle">
+            Appoint and manage officers under your jurisdiction
+          </p>
         </div>
-
-        {/* Feedback alerts */}
-        {error && (
-          <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center justify-between">
-            <span>{error}</span>
-            <button onClick={() => setError('')} className="p-1 hover:bg-red-100 rounded-lg transition"><IoClose className="w-4 h-4" /></button>
-          </div>
-        )}
-        {msg && (
-          <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{msg}</span>
-          </div>
-        )}
-
-        {/* Search */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search officer name, mobile, centre, or employee ID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500 font-medium"
-            />
-          </div>
-        </div>
-
-        {/* Officers Table */}
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="p-12 text-center text-gray-500">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary-600" />
-              <p className="text-xs">Loading officer records...</p>
-            </div>
-          ) : filteredOfficers.length === 0 ? (
-            <div className="p-12 text-center text-gray-400">
-              <UserCog className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-semibold">No procurement officers found.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-gray-50/80 border-b border-gray-200 text-gray-600 font-bold uppercase tracking-wider">
-                  <tr>
-                    <th className="py-3 px-4">Officer Name</th>
-                    <th className="py-3 px-4">Designation & Emp ID</th>
-                    <th className="py-3 px-4">Assigned Mandi Centre</th>
-                    <th className="py-3 px-4">Contact Information</th>
-                    <th className="py-3 px-4">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {filteredOfficers.map(({ user, profile }) => (
-                    <tr key={user._id} className="hover:bg-gray-50/60 transition">
-                      <td className="py-3.5 px-4 font-bold text-gray-900">
-                        {user.name}
-                        <p className="text-[10px] text-gray-400 font-normal">
-                          Added {formatDate(user.createdAt)}
-                        </p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <p className="font-semibold text-gray-800">{profile?.designation || 'Procurement Officer'}</p>
-                        <p className="text-[10px] text-primary-700 font-mono">
-                          ID: {profile?.employeeId || 'GOV-PROC-01'}
-                        </p>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <div className="flex items-center gap-1.5 text-gray-800 font-medium">
-                          <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                          <span>{profile?.centreId?.name || 'Unassigned Centre'}</span>
-                        </div>
-                        <p className="text-[10px] text-gray-500 pl-5">
-                          {profile?.centreId?.district || ''}
-                        </p>
-                      </td>
-                      <td className="py-3.5 px-4 space-y-0.5">
-                        <p className="text-gray-700 font-mono flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-gray-400" /> {user.mobile}
-                        </p>
-                        {user.email && (
-                          <p className="text-[10px] text-gray-500 flex items-center gap-1">
-                            <Mail className="w-2.5 h-2.5 text-gray-400" /> {user.email}
-                          </p>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-800 flex items-center gap-1 w-fit">
-                          <BadgeCheck className="w-3 h-3" /> Active Duty
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-
-        {/* Add Officer Modal */}
-        {modalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200">
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <h3 className="text-lg font-black text-gray-900">Add Procurement Officer</h3>
-                <button onClick={() => setModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"><IoClose className="w-5 h-5" /></button>
-              </div>
-
-              <form onSubmit={handleCreateOfficer} className="mt-4 space-y-3 text-xs">
-                <div>
-                  <label className="font-bold text-gray-700">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Suresh Verma"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="mt-1 w-full p-2 rounded-lg border border-gray-300 focus:ring-primary-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700">Mobile (10 digits)</label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="9876543210"
-                      pattern="[0-9]{10}"
-                      value={formData.mobile}
-                      onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700">Employee ID</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="GOV-PROC-102"
-                      value={formData.employeeId}
-                      onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700">Official Email</label>
-                  <input
-                    type="email"
-                    placeholder="officer@kisanprocure.gov.in"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700">Login Password</label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="Minimum 6 characters"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                  />
-                </div>
-
-                <div>
-                  <label className="font-bold text-gray-700">Assigned Procurement Centre</label>
-                  <select
-                    required
-                    value={formData.centreId}
-                    onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
-                    className="mt-1 w-full p-2 rounded-lg border border-gray-300 font-medium"
-                  >
-                    <option value="">Select Mandi Centre...</option>
-                    {centres.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name} ({c.address?.district || ''})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setModalOpen(false)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold shadow-md transition disabled:opacity-50"
-                  >
-                    {submitting ? 'Creating...' : 'Register Officer'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
+        {appointableRoles.length > 0 && (
+          <Button
+            variant="primary"
+            onClick={() => setShowForm(!showForm)}
+            leftIcon={<UserPlus className="w-4 h-4" />}
+          >
+            Appoint Officer
+          </Button>
         )}
       </div>
+
+      {/* Last Created Credentials Banner */}
+      {lastCreated && (
+        <div className="mb-5 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold text-emerald-800 text-sm">Officer Appointed Successfully!</p>
+              <p className="text-sm text-emerald-700 mt-1">
+                Share these credentials with the officer:
+              </p>
+              <div className="mt-2 p-3 bg-white rounded-lg border border-emerald-200 font-mono text-sm">
+                <p>Employee ID: <strong>{lastCreated.employeeId}</strong></p>
+                <p>Default Password: <strong>{lastCreated.defaultPassword || 'Kisan@123'}</strong></p>
+                <p className="text-xs text-gray-400 mt-1">Officer must change password on first login.</p>
+              </div>
+            </div>
+            <button onClick={() => setLastCreated(null)} className="text-emerald-400 hover:text-emerald-600 text-lg">×</button>
+          </div>
+        </div>
+      )}
+
+      {/* Appoint Form */}
+      {showForm && (
+        <div className="card p-5 mb-6">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-primary-500" />
+            Appoint New Officer
+          </h2>
+          {appointableRoles.length === 0 ? (
+            <div className="flex items-center gap-2 text-amber-700 text-sm bg-amber-50 p-3 rounded-lg">
+              <AlertCircle className="w-4 h-4" />
+              You don't have authority to appoint officers at this level.
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <Input label="Full Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Ramesh Kumar" required leftIcon={<User className="w-4 h-4" />} />
+                <Input label="Mobile Number *" value={form.mobile} onChange={(e) => setForm({ ...form, mobile: e.target.value })} placeholder="10-digit mobile" required leftIcon={<Phone className="w-4 h-4" />} />
+                <Input label="Email (Optional)" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="officer@example.com" leftIcon={<Mail className="w-4 h-4" />} />
+                <Select label="Role to Appoint *" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} required>
+                  {appointableRoles.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </Select>
+                {!user?.district && (
+                  <>
+                    <Select label="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value, district: '' })}>
+                      <option value="">Select State</option>
+                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </Select>
+                    <Select label="District" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} disabled={!form.state}>
+                      <option value="">Select District</option>
+                      {(STATE_DISTRICTS[form.state] || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </Select>
+                  </>
+                )}
+                {centres.length > 0 && (
+                  <Select label="Assign to Centre (Optional)" value={form.centreId} onChange={(e) => setForm({ ...form, centreId: e.target.value })}>
+                    <option value="">No Centre Assignment</option>
+                    {centres.map((c) => <option key={c._id} value={c._id}>{c.name} — {c.district}</option>)}
+                  </Select>
+                )}
+                <Input label="Designation (Optional)" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} placeholder="e.g. Senior Procurement Officer" leftIcon={<Briefcase className="w-4 h-4" />} />
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                <Shield className="w-4 h-4 flex-shrink-0" />
+                Default password will be <strong className="mx-1">Kisan@123</strong> — officer must change it on first login.
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button type="submit" variant="primary" loading={saving}>Appoint Officer</Button>
+                <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name, mobile, employee ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="input pl-9 w-full"
+          />
+        </div>
+        <Button variant="ghost" size="sm" onClick={fetchData} leftIcon={<RefreshCw className="w-4 h-4" />}>Refresh</Button>
+      </div>
+
+      {/* Officers List */}
+      {loading ? (
+        <TableSkeleton rows={5} cols={5} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Shield}
+          title="No officers found"
+          description={officers.length === 0 ? "No officers have been appointed yet. Use the button above to appoint your first officer." : "No officers match your search."}
+          className="card"
+        />
+      ) : (
+        <div className="table-container">
+          <table className="table">
+            <thead className="table-head">
+              <tr>
+                <th className="table-th">Officer</th>
+                <th className="table-th">Employee ID</th>
+                <th className="table-th">Role</th>
+                <th className="table-th">District</th>
+                <th className="table-th">Centre</th>
+                <th className="table-th">Status</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-100">
+              {filtered.map((o) => (
+                <tr key={o.user._id} className="table-tr">
+                  <td className="table-td">
+                    <div>
+                      <p className="font-medium text-gray-900 text-sm">{o.user.name}</p>
+                      <p className="text-xs text-gray-400">{o.user.mobile}</p>
+                    </div>
+                  </td>
+                  <td className="table-td">
+                    <span className="font-mono text-sm text-gray-700">{o.profile?.employeeId || o.user.employeeId || '—'}</span>
+                  </td>
+                  <td className="table-td">
+                    <span className={`badge text-xs ${ROLE_BADGE[o.user.role] || 'bg-gray-100 text-gray-700'}`}>
+                      {ROLE_LABEL[o.user.role] || o.user.role}
+                    </span>
+                  </td>
+                  <td className="table-td text-sm text-gray-600">{o.user.district || '—'}</td>
+                  <td className="table-td text-sm text-gray-600">{o.profile?.centreId?.name || '—'}</td>
+                  <td className="table-td">
+                    <span className={`badge text-xs ${o.user.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                      {o.user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </AdminLayout>
   );
 };

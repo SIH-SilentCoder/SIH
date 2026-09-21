@@ -1,444 +1,306 @@
 import { useState, useEffect } from 'react';
 import {
-  Building2, Plus, Calendar, Clock, MapPin, Search, CheckCircle2,
-  RefreshCw, Users, Settings2, Sparkles
+  Building2, Plus, Search, RefreshCw, Edit3, Trash2, MapPin,
+  Clock, Users, Package, ChevronRight, X, Check
 } from 'lucide-react';
-import { IoClose } from 'react-icons/io5';
-import AdminLayout from '../../layouts/AdminLayout';
-import { adminService, cropService } from '../../services';
+import { adminService } from '../../services';
 import { extractError } from '../../utils/constants';
+import AdminLayout from '../../layouts/AdminLayout';
+import Button from '../../components/common/Button';
+import Input, { Select } from '../../components/common/Input';
+import { CardSkeleton } from '../../components/common/Spinner';
+import EmptyState from '../../components/common/EmptyState';
+import { useAuth } from '../../context/AuthContext';
+import toast from 'react-hot-toast';
+
 import { INDIAN_STATES, STATE_DISTRICTS } from '../../utils/locations';
 
+const INITIAL_FORM = {
+  name: '', address: '', district: '', state: '', pincode: '',
+  contactPhone: '', contactEmail: '', description: '',
+  dailyCapacity: 100, slotDurationMinutes: 60, cancellationCutoffHours: 12,
+  operatingHoursStart: '09:00', operatingHoursEnd: '17:00',
+  availableCrops: [],
+};
+
 const CentreManagementPage = () => {
+  const { user } = useAuth();
   const [centres, setCentres] = useState([]);
   const [crops, setCrops] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
 
-  // Modals
-  const [addCentreOpen, setAddCentreOpen] = useState(false);
-  const [slotModalOpen, setSlotModalOpen] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-
-  // Form states
-  const [centreForm, setCentreForm] = useState({
-    name: '',
-    code: '',
-    address: { line1: '', district: '', state: '', pincode: '' },
-    dailyCapacity: 300,
-    counters: 3,
-    slotDurationMinutes: 60,
-    operatingHours: { start: '09:00', end: '17:00' },
+  const [form, setForm] = useState({
+    ...INITIAL_FORM,
+    state: user?.state || '',
+    district: user?.district || '',
   });
 
-  const [slotForm, setSlotForm] = useState({
-    centreId: '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-    slotDurationMinutes: 60,
-    capacityPerSlot: 10,
-  });
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const [centresRes, cropsRes] = await Promise.all([
         adminService.getCentres(),
-        cropService.getCrops(),
+        adminService.getCrops(),
       ]);
-      setCentres(centresRes.data.data.centres || []);
-      setCrops(cropsRes.data.data.crops || []);
-      setError('');
+      setCentres(centresRes.data?.data?.centres || []);
+      setCrops(cropsRes.data?.data?.crops || []);
     } catch (err) {
-      setError(extractError(err));
+      toast.error(extractError(err));
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  const openEdit = (centre) => {
+    setForm({
+      name: centre.name || '',
+      address: centre.address || '',
+      district: centre.district || '',
+      state: centre.state || '',
+      pincode: centre.pincode || '',
+      contactPhone: centre.contactPhone || '',
+      contactEmail: centre.contactEmail || '',
+      description: centre.description || '',
+      dailyCapacity: centre.dailyCapacity || 100,
+      slotDurationMinutes: centre.slotDurationMinutes || 60,
+      cancellationCutoffHours: centre.cancellationCutoffHours || 12,
+      operatingHoursStart: centre.operatingHours?.start || '09:00',
+      operatingHoursEnd: centre.operatingHours?.end || '17:00',
+      availableCrops: (centre.availableCrops || []).map((c) => c._id || c),
+    });
+    setEditingId(centre._id);
+    setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-  const handleCreateCentre = async (e) => {
+  const resetForm = () => {
+    setForm({ ...INITIAL_FORM, state: user?.state || '', district: user?.district || '' });
+    setEditingId(null);
+    setShowForm(false);
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
+    if (!form.name || !form.address) {
+      toast.error('Centre name and address are required.');
+      return;
+    }
+    setSaving(true);
     try {
-      await adminService.createCentre(centreForm);
-      setMsg(`Procurement Centre "${centreForm.name}" created successfully.`);
-      setTimeout(() => setMsg(''), 4000);
-      setAddCentreOpen(false);
-      setCentreForm({
-        name: '',
-        code: '',
-        address: { line1: '', district: '', state: '', pincode: '' },
-        dailyCapacity: 300,
-        counters: 3,
-        slotDurationMinutes: 60,
-        operatingHours: { start: '09:00', end: '17:00' },
-      });
+      const payload = {
+        ...form,
+        operatingHours: { start: form.operatingHoursStart, end: form.operatingHoursEnd },
+      };
+      if (editingId) {
+        await adminService.updateCentre(editingId, payload);
+        toast.success('Centre updated successfully.');
+      } else {
+        await adminService.createCentre(payload);
+        toast.success('Procurement centre created successfully.');
+      }
+      resetForm();
       fetchData();
     } catch (err) {
-      setError(extractError(err));
+      toast.error(extractError(err));
     } finally {
-      setSubmitting(false);
+      setSaving(false);
     }
   };
 
-  const handleGenerateSlots = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
+  const handleDelete = async (id) => {
+    if (!window.confirm('Deactivate this centre? Farmers will no longer be able to book slots here.')) return;
     try {
-      const res = await adminService.generateSlots(slotForm);
-      setMsg(res.data.message || 'Slots generated successfully!');
-      setTimeout(() => setMsg(''), 4000);
-      setSlotModalOpen(false);
+      await adminService.deleteCentre(id);
+      toast.success('Centre deactivated.');
+      fetchData();
     } catch (err) {
-      setError(extractError(err));
-    } finally {
-      setSubmitting(false);
+      toast.error(extractError(err));
     }
   };
 
-  const filteredCentres = centres.filter((c) => {
-    if (!search) return true;
-    const term = search.toLowerCase();
-    return (
-      c.name?.toLowerCase().includes(term) ||
-      c.address?.district?.toLowerCase().includes(term) ||
-      c.code?.toLowerCase().includes(term)
-    );
+  const toggleCrop = (cropId) => {
+    setForm((prev) => ({
+      ...prev,
+      availableCrops: prev.availableCrops.includes(cropId)
+        ? prev.availableCrops.filter((c) => c !== cropId)
+        : [...prev.availableCrops, cropId],
+    }));
+  };
+
+  const filtered = centres.filter((c) => {
+    const q = search.toLowerCase();
+    return c.name?.toLowerCase().includes(q) || c.district?.toLowerCase().includes(q) || c.centreId?.toLowerCase().includes(q);
   });
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-gray-900">Procurement Centres (Mandis)</h1>
-            <p className="text-xs text-gray-500">Configure grain intake capacities, counters, and automated slot schedules</p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSlotModalOpen(true)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5"
-            >
-              <Sparkles className="w-4 h-4" />
-              Generate Slots
-            </button>
-            <button
-              onClick={() => setAddCentreOpen(true)}
-              className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              New Centre
-            </button>
-          </div>
+      <div className="page-header flex items-start justify-between gap-4">
+        <div>
+          <h1 className="page-title">Procurement Centres</h1>
+          <p className="page-subtitle">Manage procurement centres in your jurisdiction</p>
         </div>
-
-        {/* Feedback alerts */}
-        {error && (
-          <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center justify-between">
-            <span>{error}</span>
-            <button onClick={() => setError('')} className="p-1 hover:bg-red-100 rounded-lg transition"><IoClose className="w-4 h-4" /></button>
-          </div>
-        )}
-        {msg && (
-          <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-            <span>{msg}</span>
-          </div>
-        )}
-
-        {/* Search */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm">
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search mandi name, district, or code..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500 font-medium"
-            />
-          </div>
-        </div>
-
-        {/* Mandi Centres Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {loading ? (
-            <div className="col-span-full p-12 text-center text-gray-500">
-              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary-600" />
-              <p className="text-xs">Loading procurement centres...</p>
-            </div>
-          ) : filteredCentres.length === 0 ? (
-            <div className="col-span-full p-12 text-center text-gray-400">
-              <Building2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-semibold">No centres found matching search.</p>
-            </div>
-          ) : (
-            filteredCentres.map((c) => (
-              <div key={c._id} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col justify-between hover:border-primary-300 transition">
-                <div>
-                  <div className="flex justify-between items-start">
-                    <span className="text-xs font-mono font-bold text-primary-700 bg-primary-50 px-2 py-0.5 rounded">
-                      {c.code || 'MANDI'}
-                    </span>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full uppercase">
-                      Operational
-                    </span>
-                  </div>
-
-                  <h3 className="text-lg font-black text-gray-900 mt-2">{c.name}</h3>
-                  <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                    <MapPin className="w-3 h-3 text-gray-400" />
-                    {c.address?.district}, {c.address?.state}
-                  </p>
-
-                  <div className="mt-5 grid grid-cols-2 gap-3 pt-4 border-t border-gray-100 text-xs">
-                    <div className="bg-gray-50 p-2.5 rounded-xl">
-                      <span className="text-gray-500">Daily Capacity</span>
-                      <p className="font-bold text-gray-900 mt-0.5">{c.dailyCapacity || 250} Qtl</p>
-                    </div>
-                    <div className="bg-gray-50 p-2.5 rounded-xl">
-                      <span className="text-gray-500">Active Counters</span>
-                      <p className="font-bold text-gray-900 mt-0.5">{c.counters || 2} Counters</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-3 text-xs text-gray-600 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 text-gray-400" />
-                    <span>Operating Hours: {c.operatingHours?.start || '09:00'} - {c.operatingHours?.end || '17:00'}</span>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-gray-100 flex justify-between items-center">
-                  <button
-                    onClick={() => {
-                      setSlotForm((prev) => ({ ...prev, centreId: c._id }));
-                      setSlotModalOpen(true);
-                    }}
-                    className="w-full py-2 bg-primary-50 hover:bg-primary-100 text-primary-700 font-bold rounded-xl text-xs transition text-center"
-                  >
-                    Schedule & Generate Slots
-                  </button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Add Centre Modal */}
-        {addCentreOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-200">
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <h3 className="text-lg font-black text-gray-900">Add Procurement Centre</h3>
-                <button onClick={() => setAddCentreOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"><IoClose className="w-5 h-5" /></button>
-              </div>
-
-              <form onSubmit={handleCreateCentre} className="mt-4 space-y-3 text-xs">
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <label className="font-bold text-gray-700">Mandi / Centre Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Karnal Central Mandi"
-                      value={centreForm.name}
-                      onChange={(e) => setCentreForm({ ...centreForm, name: e.target.value })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700">Mandi Code</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="KRN-01"
-                      value={centreForm.code}
-                      onChange={(e) => setCentreForm({ ...centreForm, code: e.target.value.toUpperCase() })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700">State</label>
-                    <select
-                      required
-                      value={centreForm.address.state}
-                      onChange={(e) => setCentreForm({ ...centreForm, address: { ...centreForm.address, state: e.target.value, district: '' } })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    >
-                      <option value="">Select State</option>
-                      {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700">District</label>
-                    <select
-                      required
-                      value={centreForm.address.district}
-                      onChange={(e) => setCentreForm({ ...centreForm, address: { ...centreForm.address, district: e.target.value } })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                      disabled={!centreForm.address.state}
-                    >
-                      <option value="">Select District</option>
-                      {(STATE_DISTRICTS[centreForm.address.state] || []).map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700">Daily Capacity (Quintals)</label>
-                    <input
-                      type="number"
-                      required
-                      value={centreForm.dailyCapacity}
-                      onChange={(e) => setCentreForm({ ...centreForm, dailyCapacity: parseInt(e.target.value) || 0 })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700">Operating Counters</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={10}
-                      value={centreForm.counters}
-                      onChange={(e) => setCentreForm({ ...centreForm, counters: parseInt(e.target.value) || 1 })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setAddCentreOpen(false)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl font-bold shadow-md transition disabled:opacity-50"
-                  >
-                    {submitting ? 'Saving...' : 'Create Centre'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Generate Slots Modal */}
-        {slotModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-200">
-              <div className="flex justify-between items-center border-b border-gray-100 pb-3">
-                <h3 className="text-lg font-black text-gray-900">Bulk Slot Schedule Generator</h3>
-                <button onClick={() => setSlotModalOpen(false)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition"><IoClose className="w-5 h-5" /></button>
-              </div>
-
-              <form onSubmit={handleGenerateSlots} className="mt-4 space-y-3 text-xs">
-                <div>
-                  <label className="font-bold text-gray-700">Select Centre</label>
-                  <select
-                    required
-                    value={slotForm.centreId}
-                    onChange={(e) => setSlotForm({ ...slotForm, centreId: e.target.value })}
-                    className="mt-1 w-full p-2 rounded-lg border border-gray-300 font-medium"
-                  >
-                    <option value="">Choose Mandi...</option>
-                    {centres.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name} ({c.address?.district})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700">Start Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={slotForm.startDate}
-                      onChange={(e) => setSlotForm({ ...slotForm, startDate: e.target.value })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700">End Date</label>
-                    <input
-                      type="date"
-                      required
-                      value={slotForm.endDate}
-                      onChange={(e) => setSlotForm({ ...slotForm, endDate: e.target.value })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-bold text-gray-700">Slot Duration</label>
-                    <select
-                      value={slotForm.slotDurationMinutes}
-                      onChange={(e) => setSlotForm({ ...slotForm, slotDurationMinutes: parseInt(e.target.value) })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    >
-                      <option value={30}>30 Minutes</option>
-                      <option value={60}>60 Minutes (1 Hour)</option>
-                      <option value={90}>90 Minutes</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="font-bold text-gray-700">Capacity per Slot</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={50}
-                      value={slotForm.capacityPerSlot}
-                      onChange={(e) => setSlotForm({ ...slotForm, capacityPerSlot: parseInt(e.target.value) || 10 })}
-                      className="mt-1 w-full p-2 rounded-lg border border-gray-300"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setSlotModalOpen(false)}
-                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md transition disabled:opacity-50"
-                  >
-                    {submitting ? 'Generating...' : 'Generate Slots'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <Button variant="primary" onClick={() => { resetForm(); setShowForm(true); }} leftIcon={<Plus className="w-4 h-4" />}>
+          Add Centre
+        </Button>
       </div>
+
+      {/* Form */}
+      {showForm && (
+        <div className="card p-6 mb-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-primary-500" />
+              {editingId ? 'Edit Centre' : 'Add New Procurement Centre'}
+            </h2>
+            <button onClick={resetForm} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Basic Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <Input label="Centre Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Gorakhpur Mandi Centre" required containerClassName="col-span-2" />
+              <Input label="Address *" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Full address of the centre" required containerClassName="col-span-2" />
+
+              {!user?.district ? (
+                <>
+                  <Select label="State *" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value, district: '' })} required>
+                    <option value="">Select State</option>
+                    {INDIAN_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </Select>
+                  <Select label="District *" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} disabled={!form.state} required>
+                    <option value="">Select District</option>
+                    {(STATE_DISTRICTS[form.state] || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                  </Select>
+                </>
+              ) : (
+                <>
+                  <Input label="State" value={form.state} readOnly containerClassName="col-span-1" />
+                  <Input label="District" value={form.district} readOnly containerClassName="col-span-1" />
+                </>
+              )}
+
+              <Input label="Pincode" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} placeholder="e.g. 273001" />
+              <Input label="Contact Phone" value={form.contactPhone} onChange={(e) => setForm({ ...form, contactPhone: e.target.value })} placeholder="e.g. 9876543210" />
+            </div>
+
+            {/* Operations */}
+            <div className="border-t pt-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Operating Details</p>
+              <div className="grid grid-cols-3 gap-4">
+                <Input label="Daily Capacity (farmers)" type="number" value={form.dailyCapacity} onChange={(e) => setForm({ ...form, dailyCapacity: Number(e.target.value) })} min={1} />
+                <Input label="Slot Duration (minutes)" type="number" value={form.slotDurationMinutes} onChange={(e) => setForm({ ...form, slotDurationMinutes: Number(e.target.value) })} min={15} />
+                <Input label="Cancellation Cutoff (hours)" type="number" value={form.cancellationCutoffHours} onChange={(e) => setForm({ ...form, cancellationCutoffHours: Number(e.target.value) })} min={0} />
+                <Input label="Opening Time" type="time" value={form.operatingHoursStart} onChange={(e) => setForm({ ...form, operatingHoursStart: e.target.value })} />
+                <Input label="Closing Time" type="time" value={form.operatingHoursEnd} onChange={(e) => setForm({ ...form, operatingHoursEnd: e.target.value })} />
+              </div>
+            </div>
+
+            {/* Available Crops */}
+            {crops.length > 0 && (
+              <div className="border-t pt-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                  Available Crops at This Centre ({form.availableCrops.length} selected)
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {crops.filter((c) => c.isActive !== false).map((crop) => {
+                    const selected = form.availableCrops.includes(crop._id);
+                    return (
+                      <button
+                        key={crop._id}
+                        type="button"
+                        onClick={() => toggleCrop(crop._id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-all ${
+                          selected
+                            ? 'bg-primary-600 text-white border-primary-600'
+                            : 'bg-white text-gray-700 border-gray-200 hover:border-primary-300'
+                        }`}
+                      >
+                        {selected && <Check className="w-3.5 h-3.5" />}
+                        {crop.name}
+                        <span className="text-xs opacity-75">₹{crop.mspPrice?.toLocaleString('en-IN')}/qtl</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {crops.length === 0 && (
+                  <p className="text-sm text-amber-600">No crops available. Add crops first from Crop Management.</p>
+                )}
+              </div>
+            )}
+
+            <Input label="Description (Optional)" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description of this centre" />
+
+            <div className="flex gap-3 pt-2 border-t">
+              <Button type="submit" variant="primary" loading={saving}>
+                {editingId ? 'Update Centre' : 'Create Centre'}
+              </Button>
+              <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input type="text" placeholder="Search by name, district..." value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9 w-full" />
+        </div>
+        <Button variant="ghost" size="sm" onClick={fetchData} leftIcon={<RefreshCw className="w-4 h-4" />}>Refresh</Button>
+      </div>
+
+      {/* Centres Grid */}
+      {loading ? (
+        <CardSkeleton rows={3} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Building2}
+          title="No procurement centres"
+          description={centres.length === 0 ? "No centres created yet. Add your first procurement centre above." : "No centres match your search."}
+          className="card"
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filtered.map((centre) => (
+            <div key={centre._id} className={`card p-5 flex flex-col gap-3 ${!centre.isActive ? 'opacity-60' : ''}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-gray-900">{centre.name}</p>
+                  <p className="text-xs text-gray-400 font-mono">{centre.centreId}</p>
+                </div>
+                <span className={`badge text-xs flex-shrink-0 ${centre.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  {centre.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+              <div className="space-y-1.5 text-sm text-gray-600">
+                <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" />{centre.district}, {centre.state}</div>
+                <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-gray-400" />{centre.operatingHours?.start || '09:00'} – {centre.operatingHours?.end || '17:00'}</div>
+                <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-gray-400" />Capacity: {centre.dailyCapacity} farmers/day</div>
+                {centre.availableCrops?.length > 0 && (
+                  <div className="flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-gray-400" />
+                    {centre.availableCrops.slice(0, 3).map((c) => c.name || c).join(', ')}
+                    {centre.availableCrops.length > 3 && ` +${centre.availableCrops.length - 3}`}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2 pt-2 border-t">
+                <Button variant="ghost" size="sm" onClick={() => openEdit(centre)} leftIcon={<Edit3 className="w-3.5 h-3.5" />}>Edit</Button>
+                {centre.isActive && (
+                  <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-700" onClick={() => handleDelete(centre._id)} leftIcon={<Trash2 className="w-3.5 h-3.5" />}>Deactivate</Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </AdminLayout>
   );
 };

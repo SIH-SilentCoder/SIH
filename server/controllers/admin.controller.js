@@ -11,7 +11,8 @@ const State = require('../models/State.model');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const { startOfDay, endOfDay } = require('../utils/helpers');
-const { ROLES, OFFICER_ROLES, ROLE_LABELS, generateEmployeeId } = require('../utils/roleHierarchy');
+const { ROLES, OFFICER_ROLES, ROLE_LABELS, ROLE_LEVELS, generateEmployeeId, canCreate, DEFAULT_PASSWORD } = require('../utils/roleHierarchy');
+const { filterByJurisdiction } = require('../utils/jurisdiction');
 
 // GET /api/admin/dashboard
 const getAdminDashboard = async (req, res, next) => {
@@ -192,7 +193,7 @@ const getAllBookings = async (req, res, next) => {
   }
 };
 
-// POST /api/admin/officers
+// POST /api/admin/officers — legacy (admin only, kept for backward compatibility)
 const createOfficer = async (req, res, next) => {
   try {
     const { name, mobile, email, password, centreId, employeeId, designation } = req.body;
@@ -208,10 +209,128 @@ const createOfficer = async (req, res, next) => {
       designation: designation || 'Procurement Officer',
     });
 
-    // Add officer to centre
-    await ProcurementCentre.findByIdAndUpdate(centreId, { $addToSet: { officerIds: user._id } });
+    if (centreId) {
+      await ProcurementCentre.findByIdAndUpdate(centreId, { $addToSet: { officerIds: user._id } });
+    }
 
     res.status(201).json(new ApiResponse(201, { user, profile }, 'Officer created successfully.'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/admin/officers/appoint — District Officer appoints subordinate officers
+const appointOfficer = async (req, res, next) => {
+  try {
+    const { name, mobile, email, role, centreId, designation, district, state } = req.body;
+    const creator = req.user;
+
+    if (!name || !mobile || !role) {
+      throw new ApiError(400, 'Name, mobile, and role are required.');
+    }
+
+    // Validate that creator can create this role
+    if (!canCreate(creator.role, role)) {
+      throw new ApiError(
+        403,
+        `As ${ROLE_LABELS[creator.role]}, you can only appoint: ${(require('../utils/roleHierarchy').CAN_CREATE[creator.role] || []).map(r => ROLE_LABELS[r]).join(', ')}`
+      );
+    }
+
+    const existing = await User.findOne({ mobile });
+    if (existing) throw new ApiError(409, 'This mobile number is already registered.');
+
+    // Determine jurisdiction — inherit from creator if not provided
+    const officerState = state || creator.state || '';
+    const officerDistrict = district || creator.district || '';
+    const officerLevel = ROLE_LEVELS[role] || 5;
+
+    // Auto-generate employee ID
+    const locationCode = (officerDistrict.length >= 3 ? officerDistrict.slice(0, 3) : officerState.slice(0, 2) || 'XX').toUpperCase();
+    const count = await User.countDocuments({ role, district: officerDistrict || { $exists: true } });
+    const empId = generateEmployeeId(role, locationCode, count + 1);
+
+    const user = await User.create({
+      name,
+      mobile,
+      email: email || '',
+      password: DEFAULT_PASSWORD,
+      role,
+      level: officerLevel,
+      state: officerState,
+      district: officerDistrict,
+      isActive: true,
+      mustChangePassword: true,
+      employeeId: empId,
+      parentId: creator._id,
+    });
+
+    const profile = await OfficerProfile.create({
+      userId: user._id,
+      centreId: centreId || null,
+      employeeId: empId,
+      designation: designation || ROLE_LABELS[role] || 'Officer',
+    });
+
+    if (centreId) {
+      await ProcurementCentre.findByIdAndUpdate(centreId, { $addToSet: { officerIds: user._id } });
+    }
+
+    res.status(201).json(
+      new ApiResponse(201, { user, profile, employeeId: empId, defaultPassword: DEFAULT_PASSWORD },
+        `Officer appointed successfully. Employee ID: ${empId}, Default Password: ${DEFAULT_PASSWORD}`)
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/admin/farmers/register — Officer registers a farmer manually
+const registerFarmerByOfficer = async (req, res, next) => {
+  try {
+    const { name, mobile, email, state, district, village, address } = req.body;
+    const officer = req.user;
+
+    if (!name || !mobile) throw new ApiError(400, 'Farmer name and mobile number are required.');
+    if (!/^[6-9]\d{9}$/.test(mobile)) throw new ApiError(400, 'Please provide a valid 10-digit mobile number.');
+
+    const existing = await User.findOne({ mobile });
+    if (existing) throw new ApiError(409, 'A user with this mobile number already exists.');
+
+    const farmerState = state || officer.state || '';
+    const farmerDistrict = district || officer.district || '';
+
+    // Create user account
+    const user = await User.create({
+      name,
+      mobile,
+      email: email || '',
+      password: mobile, // Default password = mobile number
+      role: ROLES.FARMER,
+      level: 7,
+      state: farmerState,
+      district: farmerDistrict,
+      isActive: true,
+      mustChangePassword: true,
+    });
+
+    // Create farmer profile
+    const profile = await FarmerProfile.create({
+      userId: user._id,
+      state: farmerState,
+      district: farmerDistrict,
+      village: village || '',
+      address: address || '',
+      kycStatus: 'Not Started',
+      isProfileComplete: false,
+    });
+
+    res.status(201).json(
+      new ApiResponse(201,
+        { user, profile, defaultPassword: mobile },
+        `Farmer registered successfully. Default login password is mobile number: ${mobile}`
+      )
+    );
   } catch (error) {
     next(error);
   }
@@ -239,8 +358,26 @@ const getOfficers = async (req, res, next) => {
 // POST /api/admin/centres
 const createCentre = async (req, res, next) => {
   try {
-    const centre = await ProcurementCentre.create(req.body);
-    res.status(201).json(new ApiResponse(201, { centre }, 'Procurement centre created.'));
+    const officer = req.user;
+    const body = { ...req.body };
+
+    // Auto-fill district/state from District Officer's profile if not provided
+    if (!body.district && officer.district) body.district = officer.district;
+    if (!body.state && officer.state) body.state = officer.state;
+
+    if (!body.district || !body.state) {
+      throw new ApiError(400, 'District and State are required to create a procurement centre.');
+    }
+    if (!body.name) throw new ApiError(400, 'Centre name is required.');
+    if (!body.address) throw new ApiError(400, 'Centre address is required.');
+
+    // Auto-generate a unique centreId
+    const distCode = (body.district.slice(0, 3)).toUpperCase();
+    const count = await ProcurementCentre.countDocuments({ district: body.district });
+    body.centreId = body.centreId || `PC-${distCode}-${String(count + 1).padStart(3, '0')}`;
+
+    const centre = await ProcurementCentre.create(body);
+    res.status(201).json(new ApiResponse(201, { centre }, 'Procurement centre created successfully.'));
   } catch (error) {
     next(error);
   }
@@ -252,6 +389,21 @@ const updateCentre = async (req, res, next) => {
     const centre = await ProcurementCentre.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!centre) throw new ApiError(404, 'Centre not found.');
     res.json(new ApiResponse(200, { centre }, 'Centre updated.'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/admin/centres/:id
+const deleteCentre = async (req, res, next) => {
+  try {
+    const centre = await ProcurementCentre.findByIdAndUpdate(
+      req.params.id,
+      { isActive: false },
+      { new: true }
+    );
+    if (!centre) throw new ApiError(404, 'Centre not found.');
+    res.json(new ApiResponse(200, { centre }, 'Centre deactivated successfully.'));
   } catch (error) {
     next(error);
   }
@@ -335,6 +487,17 @@ const updateCrop = async (req, res, next) => {
     const crop = await Crop.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!crop) throw new ApiError(404, 'Crop not found.');
     res.json(new ApiResponse(200, { crop }, 'Crop updated.'));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/admin/crops/:id
+const deleteCrop = async (req, res, next) => {
+  try {
+    const crop = await Crop.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true });
+    if (!crop) throw new ApiError(404, 'Crop not found.');
+    res.json(new ApiResponse(200, { crop }, 'Crop deactivated successfully.'));
   } catch (error) {
     next(error);
   }
@@ -490,13 +653,17 @@ module.exports = {
   getFarmers,
   getAllBookings,
   createOfficer,
+  appointOfficer,
+  registerFarmerByOfficer,
   getOfficers,
   createCentre,
   updateCentre,
+  deleteCentre,
   generateSlots,
   getCrops,
   createCrop,
   updateCrop,
+  deleteCrop,
   getAnalytics,
   toggleFarmerStatus,
   createState,
