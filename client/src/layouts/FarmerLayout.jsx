@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, ClipboardList, History, Bell, User,
-  LogOut, Menu, X, Wheat, ChevronRight, Home, Sparkles, ShieldCheck
+  LogOut, Menu, X, Wheat, ChevronRight, Home, Sparkles, ShieldCheck, CreditCard
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationService } from '../services';
@@ -12,10 +12,11 @@ const navItems = [
   { to: '/farmer/kyc', icon: ShieldCheck, label: 'Farmer KYC' },
   { to: '/farmer/ai-assistant', icon: Sparkles, label: 'AI Assistant' },
   { to: '/farmer/book', icon: Calendar, label: 'Book a Slot' },
-  { to: '/farmer/bookings', icon: ClipboardList, label: 'My Bookings' },
+  { to: '/farmer/bookings', icon: ClipboardList, label: 'All Bookings' },
   { to: '/farmer/history', icon: History, label: 'History' },
   { to: '/farmer/notifications', icon: Bell, label: 'Notifications' },
   { to: '/farmer/profile', icon: User, label: 'My Profile' },
+  { to: '/farmer/payment-history', icon: CreditCard, label: 'Payment History' },
 ];
 
 const FarmerLayout = ({ children }) => {

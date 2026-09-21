@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Calendar, Ticket, MapPin, Clock, Users, CreditCard, ArrowRight,
   Plus, Bell, CheckCircle, AlertCircle, Package, ShieldCheck, Sparkles, Bot
@@ -35,6 +35,7 @@ const StatCard = ({ label, value, icon: Icon, color = 'primary', sub }) => (
 
 const FarmerDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [bookings, setBookings] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +91,7 @@ const FarmerDashboard = () => {
         {/* AI Assistant header button */}
         <button
           type="button"
-          onClick={() => setAiModalOpen(true)}
+          onClick={() => navigate('/farmer/ai-assistant')}
           className="flex items-center gap-2 px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl shadow-sm text-xs sm:text-sm font-semibold transition-all hover:shadow-md self-start sm:self-auto"
         >
           <Sparkles className="w-4 h-4 text-amber-300 animate-pulse" />
@@ -175,7 +176,7 @@ const FarmerDashboard = () => {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setAiModalOpen(true)}
+              onClick={() => navigate('/farmer/ai-assistant')}
               leftIcon={<Sparkles className="w-4 h-4 text-amber-300" />}
               className="w-full sm:w-auto shadow-sm"
             >
@@ -337,7 +338,7 @@ const FarmerDashboard = () => {
                 <div className="space-y-2">
                   <button
                     type="button"
-                    onClick={() => setAiModalOpen(true)}
+                    onClick={() => navigate('/farmer/ai-assistant')}
                     className="w-full flex items-center justify-between p-3 rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition-colors text-left"
                   >
                     <div className="flex items-center gap-2.5 text-sm font-medium">
@@ -367,7 +368,7 @@ const FarmerDashboard = () => {
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                   <Link
-                    to="/farmer/history"
+                    to="/farmer/payment-history"
                     className="flex items-center justify-between p-3 rounded-lg bg-gray-50 text-gray-700 hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center gap-2.5 text-sm font-medium">

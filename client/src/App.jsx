@@ -18,6 +18,8 @@ import NotificationsPage from './pages/farmer/NotificationsPage';
 import ProfilePage from './pages/farmer/ProfilePage';
 
 import FarmerKycPage from './pages/farmer/FarmerKycPage';
+import AiAssistantPage from './pages/farmer/AiAssistantPage';
+import PaymentHistoryPage from './pages/farmer/PaymentHistoryPage';
 
 // Officer Pages
 import OfficerDashboard from './pages/officer/OfficerDashboard';
@@ -150,6 +152,24 @@ function App() {
               element={
                 <ProtectedRoute allowedRoles={['farmer']}>
                   <FarmerKycPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/farmer/ai-assistant"
+              element={
+                <ProtectedRoute allowedRoles={['farmer']}>
+                  <AiAssistantPage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/farmer/payment-history"
+              element={
+                <ProtectedRoute allowedRoles={['farmer']}>
+                  <PaymentHistoryPage />
                 </ProtectedRoute>
               }
             />

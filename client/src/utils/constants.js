@@ -52,8 +52,9 @@ export const PROCUREMENT_STEPS = [
   { key: 'arrived', label: 'Arrived at Centre' },
   { key: 'verification', label: 'Verification' },
   { key: 'verified', label: 'Verified' },
-  { key: 'procurement_in_progress', label: 'Procurement' },
+  { key: 'procurement_in_progress', label: 'Procurement / Weighing' },
   { key: 'procurement_completed', label: 'Procurement Done' },
+  { key: 'quality_checking', label: 'Quality Checking Slip' },
   { key: 'payment_processing', label: 'Payment Processing' },
   { key: 'payment_completed', label: 'Payment Received' },
 ];
@@ -61,7 +62,7 @@ export const PROCUREMENT_STEPS = [
 export const STATUS_ORDER = [
   'booked', 'arrived', 'verification', 'verified',
   'procurement_in_progress', 'procurement_completed',
-  'payment_processing', 'payment_completed',
+  'quality_checking', 'payment_processing', 'payment_completed',
 ];
 
 export const formatCurrency = (amount) => {

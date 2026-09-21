@@ -8,6 +8,7 @@ import {
   FaSeedling,
   FaLandmark,
   FaCoins,
+  FaClipboardCheck,
 } from 'react-icons/fa';
 import { PROCUREMENT_STEPS, STATUS_ORDER } from '../../utils/constants';
 
@@ -18,6 +19,7 @@ const STEP_ICONS = {
   verified: <FaCheckCircle className="inline mr-2 text-teal-600 w-4 h-4" />,
   procurement_in_progress: <FaBalanceScale className="inline mr-2 text-orange-600 w-4 h-4" />,
   procurement_completed: <FaSeedling className="inline mr-2 text-emerald-600 w-4 h-4" />,
+  quality_checking: <FaClipboardCheck className="inline mr-2 text-violet-600 w-4 h-4" />,
   payment_processing: <FaLandmark className="inline mr-2 text-sky-600 w-4 h-4" />,
   payment_completed: <FaCoins className="inline mr-2 text-green-600 w-4 h-4" />,
 };
