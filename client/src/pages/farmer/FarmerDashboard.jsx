@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Calendar, Ticket, MapPin, Clock, Users, CreditCard, ArrowRight,
-  Plus, Bell, CheckCircle, AlertCircle, Package, Sparkles, Bot, ShieldCheck
+  Plus, Bell, CheckCircle, AlertCircle, Package, ShieldCheck
 } from 'lucide-react';
 import { FaHandPaper } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
@@ -16,7 +16,7 @@ import { CardSkeleton, StatCardSkeleton } from '../../components/common/Spinner'
 import EmptyState from '../../components/common/EmptyState';
 import Button from '../../components/common/Button';
 import toast from 'react-hot-toast';
-import AiAssistantModal from '../../components/ai/AiAssistantModal';
+
 
 const StatCard = ({ label, value, icon: Icon, color = 'primary', sub }) => (
   <div className="stat-card">
@@ -39,7 +39,7 @@ const FarmerDashboard = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeBooking, setActiveBooking] = useState(null);
-  const [aiModalOpen, setAiModalOpen] = useState(false);
+
   const [kycData, setKycData] = useState(null);
 
   useEffect(() => {
@@ -383,19 +383,7 @@ const FarmerDashboard = () => {
         </div>
       )}
 
-      {/* Floating AI Button */}
-      <button
-        type="button"
-        onClick={() => setAiModalOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 border-white/50"
-        title="Chat with Kisan AI Assistant"
-      >
-        <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
-        <span className="font-semibold text-sm hidden sm:inline">AI Assistant</span>
-      </button>
 
-      {/* AI Assistant Modal */}
-      <AiAssistantModal isOpen={aiModalOpen} onClose={() => setAiModalOpen(false)} />
     </FarmerLayout>
   );
 };

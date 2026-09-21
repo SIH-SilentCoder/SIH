@@ -16,7 +16,7 @@ import BookingDetailPage from './pages/farmer/BookingDetailPage';
 import ProcurementHistoryPage from './pages/farmer/ProcurementHistoryPage';
 import NotificationsPage from './pages/farmer/NotificationsPage';
 import ProfilePage from './pages/farmer/ProfilePage';
-import AiAssistantPage from './pages/farmer/AiAssistantPage';
+
 import FarmerKycPage from './pages/farmer/FarmerKycPage';
 
 // Officer Pages
@@ -144,14 +144,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/farmer/ai-assistant"
-              element={
-                <ProtectedRoute allowedRoles={['farmer']}>
-                  <AiAssistantPage />
-                </ProtectedRoute>
-              }
-            />
+
             <Route
               path="/farmer/kyc"
               element={
