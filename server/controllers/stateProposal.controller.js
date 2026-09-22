@@ -228,53 +228,92 @@ const approveProposal = async (req, res, next) => {
     const payload = proposal.payload || {};
     let executedRecord = null;
 
-    // Execute live database insertion based on category
+    // Execute live database insertion / activation based on category
     if (proposal.category === 'add_mandi') {
-      executedRecord = await ProcurementCentre.create({
-        name: payload.name,
-        code: payload.code || `MND-${Date.now().toString().slice(-4)}`,
-        state: proposal.state,
-        district: payload.district,
-        address: payload.address || `${payload.district}, ${proposal.state}`,
-        pincode: payload.pincode || '141001',
-        dailyCapacity: Number(payload.dailyCapacity) || 100,
-        operatingHours: payload.operatingHours || { start: '08:00', end: '18:00' },
-        slotDurationMinutes: Number(payload.slotDurationMinutes) || 60,
-        availableCrops: payload.availableCrops || [],
-        isActive: true,
-      });
+      if (payload.centreDbId) {
+        executedRecord = await ProcurementCentre.findById(payload.centreDbId);
+        if (executedRecord) {
+          executedRecord.isActive = true;
+          await executedRecord.save();
+        }
+      }
+      if (!executedRecord && payload.code) {
+        executedRecord = await ProcurementCentre.findOne({ code: payload.code, state: proposal.state });
+        if (executedRecord) {
+          executedRecord.isActive = true;
+          await executedRecord.save();
+        }
+      }
+      if (!executedRecord) {
+        executedRecord = await ProcurementCentre.create({
+          name: payload.name,
+          code: payload.code || `MND-${Date.now().toString().slice(-4)}`,
+          state: proposal.state,
+          district: payload.district,
+          address: payload.address || `${payload.district}, ${proposal.state}`,
+          pincode: payload.pincode || '141001',
+          dailyCapacity: Number(payload.dailyCapacity) || 100,
+          operatingHours: payload.operatingHours || { start: '08:00', end: '18:00' },
+          slotDurationMinutes: Number(payload.slotDurationMinutes) || 60,
+          availableCrops: payload.availableCrops || [],
+          isActive: true,
+        });
+      }
     } else if (proposal.category === 'add_officer_staff') {
-      const existingUser = await User.findOne({ mobile: payload.mobile });
-      if (existingUser) {
-        throw new ApiError(409, `User with mobile number ${payload.mobile} already exists.`);
+      if (payload.userId) {
+        executedRecord = await User.findById(payload.userId);
+        if (executedRecord) {
+          executedRecord.isActive = true;
+          await executedRecord.save();
+        }
+      }
+      if (!executedRecord && payload.mobile) {
+        executedRecord = await User.findOne({ mobile: payload.mobile });
+        if (executedRecord) {
+          executedRecord.isActive = true;
+          await executedRecord.save();
+        }
       }
 
-      const role = payload.role || ROLES.DISTRICT_OFFICER;
-      const count = await User.countDocuments({ role });
-      const empId = payload.employeeId || generateEmployeeId(role, payload.districtCode || proposal.state.slice(0, 2).toUpperCase(), count + 1);
+      if (!executedRecord) {
+        const role = payload.role || ROLES.DISTRICT_OFFICER;
+        const count = await User.countDocuments({ role });
+        const empId = payload.employeeId || generateEmployeeId(role, payload.districtCode || proposal.state.slice(0, 2).toUpperCase(), count + 1);
 
-      executedRecord = await User.create({
-        name: payload.name,
-        mobile: payload.mobile,
-        email: payload.email,
-        password: payload.password || 'Kisan@123',
-        role,
-        level: role === ROLES.DISTRICT_OFFICER ? 3 : 5,
-        state: proposal.state,
-        district: payload.district,
-        department: payload.department || proposal.department,
-        departmentRole: payload.departmentRole || 'Officer',
-        employeeId: empId,
-        isActive: true,
-        mustChangePassword: true,
-      });
+        executedRecord = await User.create({
+          name: payload.name,
+          mobile: payload.mobile,
+          email: payload.email,
+          password: payload.password || 'Kisan@123',
+          role,
+          level: role === ROLES.DISTRICT_OFFICER ? 3 : 5,
+          state: proposal.state,
+          district: payload.district,
+          centreId: payload.centreId || null,
+          department: payload.department || proposal.department,
+          departmentRole: payload.departmentRole || 'Officer',
+          employeeId: empId,
+          isActive: true,
+          mustChangePassword: true,
+        });
+      }
 
-      await OfficerProfile.create({
-        userId: executedRecord._id,
-        centreId: payload.centreId || null,
-        employeeId: empId,
-        designation: payload.designation || 'District Nodal Officer',
-      });
+      // Ensure OfficerProfile exists
+      let profile = await OfficerProfile.findOne({ userId: executedRecord._id });
+      if (!profile) {
+        profile = await OfficerProfile.create({
+          userId: executedRecord._id,
+          centreId: payload.centreId || null,
+          employeeId: executedRecord.employeeId,
+          designation: payload.designation || payload.departmentRole || 'Officer',
+        });
+      }
+
+      if (payload.centreId) {
+        await ProcurementCentre.findByIdAndUpdate(payload.centreId, {
+          $addToSet: { officerIds: executedRecord._id },
+        });
+      }
     } else if (proposal.category === 'add_crop') {
       const existingCrop = await Crop.findOne({ name: payload.name });
       if (existingCrop) {
@@ -296,7 +335,7 @@ const approveProposal = async (req, res, next) => {
       executedRecord = await User.create({
         name: payload.nodalOfficerName || `District Officer ${payload.districtName}`,
         mobile: payload.contactMobile || `98${Math.floor(10000000 + Math.random() * 90000000)}`,
-        email: payload.contactEmail || `dno.${payload.districtName.toLowerCase()}@gov.in`,
+        email: payload.contactEmail || `dno.${payload.districtName?.toLowerCase()}@gov.in`,
         password: 'Kisan@123',
         role: ROLES.DISTRICT_OFFICER,
         level: 3,
@@ -306,6 +345,11 @@ const approveProposal = async (req, res, next) => {
         departmentRole: 'District Nodal Officer',
         employeeId: empId,
         isActive: true,
+      });
+      await OfficerProfile.create({
+        userId: executedRecord._id,
+        employeeId: empId,
+        designation: 'District Nodal Officer',
       });
     }
 
@@ -368,6 +412,14 @@ const rejectProposal = async (req, res, next) => {
     }
 
     await proposal.save();
+
+    // Ensure pre-created items remain inactive
+    if (proposal.payload?.userId) {
+      await User.findByIdAndUpdate(proposal.payload.userId, { isActive: false });
+    }
+    if (proposal.payload?.centreDbId) {
+      await ProcurementCentre.findByIdAndUpdate(proposal.payload.centreDbId, { isActive: false });
+    }
 
     if (proposal.proposedBy) {
       await Notification.create({

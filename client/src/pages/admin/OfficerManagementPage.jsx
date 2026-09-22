@@ -120,7 +120,11 @@ const OfficerManagementPage = () => {
       const res = await adminService.appointOfficer(form);
       const data = res.data?.data;
       setLastCreated(data);
-      toast.success(`Officer appointed! Employee ID: ${data?.employeeId}`);
+      if (data?.pendingApproval) {
+        toast.success(`Officer proposal submitted for Central Officer approval! Employee ID: ${data?.employeeId}`);
+      } else {
+        toast.success(`Officer appointed! Employee ID: ${data?.employeeId}`);
+      }
       setShowForm(false);
       setForm({ name: '', mobile: '', email: '', role: appointableRoles[0]?.value || '', centreId: '', designation: '', district: user?.district || '', state: user?.state || '' });
       fetchData();
@@ -162,21 +166,25 @@ const OfficerManagementPage = () => {
 
       {/* Last Created Credentials Banner */}
       {lastCreated && (
-        <div className="mb-5 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+        <div className={`mb-5 p-4 rounded-xl border ${lastCreated.pendingApproval ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
           <div className="flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <CheckCircle className={`w-5 h-5 flex-shrink-0 mt-0.5 ${lastCreated.pendingApproval ? 'text-amber-600' : 'text-emerald-600'}`} />
             <div className="flex-1">
-              <p className="font-semibold text-emerald-800 text-sm">Officer Appointed Successfully!</p>
-              <p className="text-sm text-emerald-700 mt-1">
-                Share these credentials with the officer:
+              <p className={`font-semibold text-sm ${lastCreated.pendingApproval ? 'text-amber-800' : 'text-emerald-800'}`}>
+                {lastCreated.pendingApproval ? 'Officer Proposal Submitted (Pending Central Approval)' : 'Officer Appointed Successfully!'}
               </p>
-              <div className="mt-2 p-3 bg-white rounded-lg border border-emerald-200 font-mono text-sm">
+              <p className={`text-sm mt-1 ${lastCreated.pendingApproval ? 'text-amber-700' : 'text-emerald-700'}`}>
+                {lastCreated.pendingApproval
+                  ? 'A proposal has been dispatched to Central Officer. The credentials below will become active once Central Officer grants approval:'
+                  : 'Share these credentials with the officer:'}
+              </p>
+              <div className="mt-2 p-3 bg-white rounded-lg border border-gray-200 font-mono text-sm">
                 <p>Employee ID: <strong>{lastCreated.employeeId}</strong></p>
                 <p>Default Password: <strong>{lastCreated.defaultPassword || 'Kisan@123'}</strong></p>
-                <p className="text-xs text-gray-400 mt-1">Officer must change password on first login.</p>
+                <p className="text-xs text-gray-400 mt-1">Officer must change password on first login after approval.</p>
               </div>
             </div>
-            <button onClick={() => setLastCreated(null)} className="text-emerald-400 hover:text-emerald-600 text-lg">×</button>
+            <button onClick={() => setLastCreated(null)} className="text-gray-400 hover:text-gray-600 text-lg">×</button>
           </div>
         </div>
       )}
@@ -204,7 +212,15 @@ const OfficerManagementPage = () => {
                     <option key={r.value} value={r.value}>{r.label}</option>
                   ))}
                 </Select>
-                {!user?.district && (
+                {user?.role === 'state_officer' ? (
+                  <>
+                    <Input label="State" value={user.state} readOnly leftIcon={<Building2 className="w-4 h-4" />} />
+                    <Select label="District *" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value, state: user.state })} required>
+                      <option value="">Select District</option>
+                      {(STATE_DISTRICTS[user.state] || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                    </Select>
+                  </>
+                ) : !user?.district ? (
                   <>
                     <Select label="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value, district: '' })}>
                       <option value="">Select State</option>
@@ -215,7 +231,7 @@ const OfficerManagementPage = () => {
                       {(STATE_DISTRICTS[form.state] || []).map((d) => <option key={d} value={d}>{d}</option>)}
                     </Select>
                   </>
-                )}
+                ) : null}
                 {centres.length > 0 && (
                   <Select
                     label="Assign to Centre (Optional)"
@@ -313,8 +329,12 @@ const OfficerManagementPage = () => {
                   <td className="table-td text-sm text-gray-600">{o.user.district || '—'}</td>
                   <td className="table-td text-sm text-gray-600">{o.profile?.centreId?.name || '—'}</td>
                   <td className="table-td">
-                    <span className={`badge text-xs ${o.user.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                      {o.user.isActive ? 'Active' : 'Inactive'}
+                    <span className={`badge text-xs ${
+                      o.user.isActive
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                    }`}>
+                      {o.user.isActive ? 'Active' : 'Pending Central Approval'}
                     </span>
                   </td>
                 </tr>

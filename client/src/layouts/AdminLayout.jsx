@@ -100,6 +100,13 @@ const NAV_SECTIONS = [
         ],
       },
       {
+        to: '/state/department-proposals',
+        icon: ShieldCheck,
+        label: 'State Proposals & Approvals',
+        badge: 'Workflow',
+        badgeColor: 'bg-emerald-100 text-emerald-800',
+      },
+      {
         to: '/admin/approvals',
         icon: CheckSquare,
         label: 'Approvals',

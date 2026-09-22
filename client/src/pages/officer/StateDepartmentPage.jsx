@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import OfficerLayout from '../../layouts/OfficerLayout';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const STATE_DEPARTMENTS = [
@@ -93,13 +94,11 @@ const StateDepartmentPage = () => {
   const fetchProposals = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/state-proposals?state=${encodeURIComponent(userState)}`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await api.get('/state-proposals', {
+        params: { state: userState },
       });
-      const data = await res.json();
-      if (data.success) {
-        setProposals(data.data.proposals || []);
+      if (res.data?.success) {
+        setProposals(res.data.data?.proposals || []);
       }
     } catch (err) {
       console.error('Failed to fetch proposals:', err);
@@ -144,24 +143,14 @@ const StateDepartmentPage = () => {
         payload: { ...formData, state: userState },
       };
 
-      const res = await fetch('/api/state-proposals', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to submit proposal.');
+      await api.post('/state-proposals', body);
 
       toast.success('Proposal submitted to Central Officer for approval!');
       setCreateModalType(null);
       setFormData({});
       fetchProposals();
     } catch (err) {
-      toast.error(err.message || 'Error submitting proposal');
+      toast.error(err.response?.data?.message || err.message || 'Error submitting proposal');
     } finally {
       setSubmitting(false);
     }
@@ -174,30 +163,19 @@ const StateDepartmentPage = () => {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/state-proposals/${editModalProposal._id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          title: editModalProposal.title,
-          description: editModalProposal.description,
-          payload: editModalProposal.payload,
-          revisionNote,
-        }),
+      await api.put(`/state-proposals/${editModalProposal._id}`, {
+        title: editModalProposal.title,
+        description: editModalProposal.description,
+        payload: editModalProposal.payload,
+        revisionNote,
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to re-submit proposal.');
 
       toast.success('Revised proposal re-submitted to Central Officer!');
       setEditModalProposal(null);
       setRevisionNote('');
       fetchProposals();
     } catch (err) {
-      toast.error(err.message || 'Error re-submitting proposal');
+      toast.error(err.response?.data?.message || err.message || 'Error re-submitting proposal');
     } finally {
       setSubmitting(false);
     }
@@ -688,10 +666,11 @@ const StateDepartmentPage = () => {
                           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                           className="w-full p-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                         >
-                          <option value="district_officer">District Nodal Officer</option>
-                          <option value="centre_head">Procurement Centre Head</option>
-                          <option value="procurement_officer">Procurement Officer</option>
-                          <option value="quality_staff">Quality Inspection Staff</option>
+                          <option value="district_officer">District Nodal Officer (DNO)</option>
+                          <option value="centre_head">Procurement Centre Head (PCH)</option>
+                          <option value="procurement_officer">Procurement Officer (PO)</option>
+                          <option value="quality_staff">Quality Checking Officer (QWS)</option>
+                          <option value="gate_staff">Gate Officer / Verification Staff (GVS)</option>
                         </select>
                       </div>
                     </div>

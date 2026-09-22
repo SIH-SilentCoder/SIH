@@ -103,8 +103,13 @@ const CentreManagementPage = () => {
         await adminService.updateCentre(editingId, payload);
         toast.success('Centre updated successfully.');
       } else {
-        await adminService.createCentre(payload);
-        toast.success('Procurement centre created successfully.');
+        const res = await adminService.createCentre(payload);
+        const data = res.data?.data;
+        if (data?.pendingApproval) {
+          toast.success('Procurement centre proposal submitted! It will become active after Central Officer approval.');
+        } else {
+          toast.success('Procurement centre created successfully.');
+        }
       }
       resetForm();
       fetchData();
@@ -168,7 +173,15 @@ const CentreManagementPage = () => {
               <Input label="Centre Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Gorakhpur Mandi Centre" required containerClassName="col-span-2" />
               <Input label="Address *" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Full address of the centre" required containerClassName="col-span-2" />
 
-              {!user?.district ? (
+              {user?.role === 'state_officer' ? (
+                <>
+                  <Input label="State" value={user.state} readOnly leftIcon={<Building2 className="w-4 h-4" />} />
+                  <Select label="District *" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value, state: user.state })} required>
+                    <option value="">Select District</option>
+                    {(STATE_DISTRICTS[user.state] || []).map((d) => <option key={d} value={d}>{d}</option>)}
+                  </Select>
+                </>
+              ) : !user?.district ? (
                 <>
                   <Select label="State *" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value, district: '' })} required>
                     <option value="">Select State</option>
@@ -275,8 +288,12 @@ const CentreManagementPage = () => {
                   <p className="font-semibold text-gray-900">{centre.name}</p>
                   <p className="text-xs text-gray-400 font-mono">{centre.centreId}</p>
                 </div>
-                <span className={`badge text-xs flex-shrink-0 ${centre.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                  {centre.isActive ? 'Active' : 'Inactive'}
+                <span className={`badge text-xs flex-shrink-0 ${
+                  centre.isActive
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-800 border border-amber-300'
+                }`}>
+                  {centre.isActive ? 'Active' : 'Pending Central Approval'}
                 </span>
               </div>
               <div className="space-y-1.5 text-sm text-gray-600">

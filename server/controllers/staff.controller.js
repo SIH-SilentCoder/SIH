@@ -1,6 +1,8 @@
 const User = require('../models/User.model');
 const OfficerProfile = require('../models/OfficerProfile.model');
 const ProcurementCentre = require('../models/ProcurementCentre.model');
+const StateProposal = require('../models/StateProposal.model');
+const Notification = require('../models/Notification.model');
 const ApiError = require('../utils/ApiError');
 const ApiResponse = require('../utils/ApiResponse');
 const {
@@ -106,6 +108,9 @@ const createSubordinate = async (req, res, next) => {
       centreId: userCentreId,
     });
 
+    const isStateOfficer = creator.role === ROLES.STATE_OFFICER;
+    const initialActive = !isStateOfficer;
+
     // ── Create user ────────────────────────────────────
     const user = await User.create({
       name: name.trim(),
@@ -120,22 +125,71 @@ const createSubordinate = async (req, res, next) => {
       district: userDistrict,
       centreId: userCentreId,
       mustChangePassword: true,
-      isActive: true,
+      isActive: initialActive,
     });
 
-    // ── Create officer profile for centre-level roles ──
-    if (userCentreId && roleLevel >= 4) {
+    // ── Create officer profile for centre-level / district roles ──
+    if (userCentreId || roleLevel <= 3) {
       await OfficerProfile.create({
         userId: user._id,
-        centreId: userCentreId,
+        centreId: userCentreId || null,
         employeeId,
         designation: ROLE_LABELS[targetRole],
       });
 
-      // Add to centre's officerIds
-      await ProcurementCentre.findByIdAndUpdate(userCentreId, {
-        $addToSet: { officerIds: user._id },
+      // Add to centre's officerIds if active
+      if (userCentreId && initialActive) {
+        await ProcurementCentre.findByIdAndUpdate(userCentreId, {
+          $addToSet: { officerIds: user._id },
+        });
+      }
+    }
+
+    if (isStateOfficer) {
+      const proposal = await StateProposal.create({
+        proposalId: `PROP-OFF-${Date.now().toString().slice(-4)}`,
+        title: `[State Proposal] Appoint ${ROLE_LABELS[targetRole] || targetRole} - ${name.trim()}`,
+        category: 'add_officer_staff',
+        state: userState,
+        department: 'Administration & Nodal Department',
+        description: `State Officer ${creator.name} proposed appointing ${ROLE_LABELS[targetRole]} (${name.trim()}, Emp ID: ${employeeId}) for district ${userDistrict || 'N/A'}. Awaiting Central Officer approval.`,
+        proposedBy: creator._id,
+        proposedByName: creator.name,
+        status: 'pending_central_approval',
+        payload: {
+          userId: user._id,
+          name: name.trim(),
+          email: email?.toLowerCase(),
+          mobile,
+          role: targetRole,
+          state: userState,
+          district: userDistrict,
+          centreId: userCentreId,
+          employeeId,
+        },
       });
+
+      // Notify Central Admins
+      const centralAdmins = await User.find({ role: ROLES.CENTRAL_ADMIN });
+      for (const admin of centralAdmins) {
+        await Notification.create({
+          userId: admin._id,
+          type: 'general',
+          title: `New Officer Proposal (${proposal.proposalId})`,
+          message: `State Officer ${creator.name} (${userState}) proposed appointing ${ROLE_LABELS[targetRole]}: ${name.trim()}. Requires Central approval.`,
+        });
+      }
+
+      return res.status(201).json(
+        new ApiResponse(201, {
+          user,
+          employeeId,
+          proposalId: proposal.proposalId,
+          pendingApproval: true,
+          defaultPassword: DEFAULT_PASSWORD,
+          roleLabel: ROLE_LABELS[targetRole],
+        }, `${ROLE_LABELS[targetRole]} proposal submitted! It will become active after Central Officer approval. Employee ID: ${employeeId}`)
+      );
     }
 
     res.status(201).json(
