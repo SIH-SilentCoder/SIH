@@ -12,6 +12,7 @@ const QueueEntry = require('../models/QueueEntry.model');
 const Procurement = require('../models/Procurement.model');
 const Payment = require('../models/Payment.model');
 const Notification = require('../models/Notification.model');
+const State = require('../models/State.model');
 const { generateToken, generateBookingId, startOfDay } = require('../utils/helpers');
 const { connectDB, closeDB } = require('../config/db');
 const { ROLES, ROLE_LEVELS, ROLE_LABELS, DEFAULT_PASSWORD } = require('../utils/roleHierarchy');
@@ -33,6 +34,7 @@ async function seed() {
     Procurement.deleteMany({}),
     Payment.deleteMany({}),
     Notification.deleteMany({}),
+    State.deleteMany({}),
   ]);
   console.log('✅ Data cleared');
 

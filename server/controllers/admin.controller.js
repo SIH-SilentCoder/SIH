@@ -219,7 +219,7 @@ const createOfficer = async (req, res, next) => {
   }
 };
 
-// POST /api/admin/officers/appoint — District Officer appoints subordinate officers
+// POST /api/admin/officers/appoint — Appoint subordinate officers hierarchically
 const appointOfficer = async (req, res, next) => {
   try {
     const { name, mobile, email, role, centreId, designation, district, state } = req.body;
@@ -233,20 +233,27 @@ const appointOfficer = async (req, res, next) => {
     if (!canCreate(creator.role, role)) {
       throw new ApiError(
         403,
-        `As ${ROLE_LABELS[creator.role]}, you can only appoint: ${(require('../utils/roleHierarchy').CAN_CREATE[creator.role] || []).map(r => ROLE_LABELS[r]).join(', ')}`
+        `As ${ROLE_LABELS[creator.role] || creator.role}, you can only appoint: ${(require('../utils/roleHierarchy').CAN_CREATE[creator.role] || []).map(r => ROLE_LABELS[r] || r).join(', ')}`
       );
     }
 
     const existing = await User.findOne({ mobile });
     if (existing) throw new ApiError(409, 'This mobile number is already registered.');
 
-    // Determine jurisdiction — inherit from creator if not provided
-    const officerState = state || creator.state || '';
-    const officerDistrict = district || creator.district || '';
+    // If centreId provided, fetch centre for auto-filling jurisdiction
+    let assignedCentre = null;
+    const effectiveCentreId = centreId || (creator.role === ROLES.CENTRE_HEAD ? creator.centreId : null);
+    if (effectiveCentreId) {
+      assignedCentre = await ProcurementCentre.findById(effectiveCentreId);
+    }
+
+    // Determine jurisdiction — inherit from centre or creator if not provided
+    const officerState = state || assignedCentre?.state || creator.state || '';
+    const officerDistrict = district || assignedCentre?.district || creator.district || '';
     const officerLevel = ROLE_LEVELS[role] || 5;
 
     // Auto-generate employee ID
-    const locationCode = (officerDistrict.length >= 3 ? officerDistrict.slice(0, 3) : officerState.slice(0, 2) || 'XX').toUpperCase();
+    const locationCode = (officerDistrict.length >= 3 ? officerDistrict.slice(0, 3) : (officerState.slice(0, 2) || 'XX')).toUpperCase();
     const count = await User.countDocuments({ role, district: officerDistrict || { $exists: true } });
     const empId = generateEmployeeId(role, locationCode, count + 1);
 
@@ -259,6 +266,7 @@ const appointOfficer = async (req, res, next) => {
       level: officerLevel,
       state: officerState,
       district: officerDistrict,
+      centreId: effectiveCentreId || null,
       isActive: true,
       mustChangePassword: true,
       employeeId: empId,
@@ -267,13 +275,15 @@ const appointOfficer = async (req, res, next) => {
 
     const profile = await OfficerProfile.create({
       userId: user._id,
-      centreId: centreId || null,
+      centreId: effectiveCentreId || null,
       employeeId: empId,
       designation: designation || ROLE_LABELS[role] || 'Officer',
+      state: officerState,
+      district: officerDistrict,
     });
 
-    if (centreId) {
-      await ProcurementCentre.findByIdAndUpdate(centreId, { $addToSet: { officerIds: user._id } });
+    if (effectiveCentreId) {
+      await ProcurementCentre.findByIdAndUpdate(effectiveCentreId, { $addToSet: { officerIds: user._id } });
     }
 
     res.status(201).json(

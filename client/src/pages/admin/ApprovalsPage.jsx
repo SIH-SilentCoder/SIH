@@ -6,6 +6,7 @@ import {
   Building2, Landmark, Download, Send, MessageSquare, RefreshCw
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
+import api from '../../services/api';
 import toast from 'react-hot-toast';
 
 const ApprovalsPage = () => {
@@ -25,13 +26,9 @@ const ApprovalsPage = () => {
   const fetchProposals = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/state-proposals', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setProposals(data.data.proposals || []);
+      const res = await api.get('/state-proposals');
+      if (res.data?.success) {
+        setProposals(res.data.data?.proposals || []);
       }
     } catch (err) {
       console.error('Failed to fetch proposals:', err);
@@ -51,25 +48,18 @@ const ApprovalsPage = () => {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/state-proposals/${replySmsModal._id}/reply-feedback`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ message: smsFeedback }),
+      const res = await api.post(`/state-proposals/${replySmsModal._id}/reply-feedback`, {
+        message: smsFeedback,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to send SMS feedback.');
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to send SMS feedback.');
 
       toast.success(`Reply SMS sent to State Officer! Request status set to Changes Requested.`);
       setReplySmsModal(null);
       setSmsFeedback('');
       fetchProposals();
     } catch (err) {
-      toast.error(err.message || 'Error sending reply SMS');
+      toast.error(err.response?.data?.message || err.message || 'Error sending reply SMS');
     } finally {
       setSubmitting(false);
     }
@@ -79,25 +69,18 @@ const ApprovalsPage = () => {
   const handleApprove = async (proposal) => {
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/state-proposals/${proposal._id}/approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ remarks }),
+      const res = await api.post(`/state-proposals/${proposal._id}/approve`, {
+        remarks,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to approve proposal.');
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to approve proposal.');
 
       toast.success(`Proposal ${proposal.proposalId} Approved! Applied live in system database.`);
       setActiveModal(null);
       setRemarks('');
       fetchProposals();
     } catch (err) {
-      toast.error(err.message || 'Error approving proposal');
+      toast.error(err.response?.data?.message || err.message || 'Error approving proposal');
     } finally {
       setSubmitting(false);
     }
@@ -107,25 +90,18 @@ const ApprovalsPage = () => {
   const handleReject = async (proposal) => {
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/state-proposals/${proposal._id}/reject`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ remarks }),
+      const res = await api.post(`/state-proposals/${proposal._id}/reject`, {
+        remarks,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to reject proposal.');
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to reject proposal.');
 
       toast.error(`Proposal ${proposal.proposalId} rejected.`);
       setActiveModal(null);
       setRemarks('');
       fetchProposals();
     } catch (err) {
-      toast.error(err.message || 'Error rejecting proposal');
+      toast.error(err.response?.data?.message || err.message || 'Error rejecting proposal');
     } finally {
       setSubmitting(false);
     }

@@ -30,10 +30,10 @@ router.get('/farmers', requireDistrictOrAbove, getFarmers);
 router.put('/farmers/:id/toggle', requireDistrictOrAbove, toggleFarmerStatus);
 router.post('/farmers/register', requireCentreHeadOrAbove, registerFarmerByOfficer);
 
-// Officers — District Officer can appoint subordinate officers
+// Officers — Hierarchical officer appointment (Centre Head or above)
 router.get('/officers', requireDistrictOrAbove, getOfficers);
 router.post('/officers', requireAdmin, createOfficer);           // legacy (admin only)
-router.post('/officers/appoint', requireDistrictOrAbove, appointOfficer); // new
+router.post('/officers/appoint', requireCentreHeadOrAbove, appointOfficer);
 
 // Procurement Centres
 router.get('/centres', requireDistrictOrAbove, (req, res) => {

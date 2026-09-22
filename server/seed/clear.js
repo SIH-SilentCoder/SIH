@@ -14,6 +14,7 @@ const QueueEntry = require('../models/QueueEntry.model');
 const Procurement = require('../models/Procurement.model');
 const Payment = require('../models/Payment.model');
 const Notification = require('../models/Notification.model');
+const State = require('../models/State.model');
 
 async function clearDatabase() {
   await connectDB();
@@ -30,6 +31,7 @@ async function clearDatabase() {
     Procurement.deleteMany({}),
     Payment.deleteMany({}),
     Notification.deleteMany({}),
+    State.deleteMany({}),
   ]);
   console.log('✅ All data successfully deleted from PostgreSQL database.');
   await closeDB();

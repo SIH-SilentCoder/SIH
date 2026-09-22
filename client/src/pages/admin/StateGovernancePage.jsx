@@ -4,6 +4,7 @@ import {
   CheckCircle2, AlertTriangle, Layers, MapPin, Phone, Mail, UserPlus, FileText, ChevronRight
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
+import { adminService } from '../../services';
 import toast from 'react-hot-toast';
 
 const STATE_DEPARTMENTS = [
@@ -52,25 +53,22 @@ const StateGovernancePage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const [resStates, resOfficers] = await Promise.all([
-        fetch('/api/admin/states', { headers: { Authorization: `Bearer ${token}` } }),
-        fetch('/api/admin/officers', { headers: { Authorization: `Bearer ${token}` } }),
+        adminService.getStates(),
+        adminService.getOfficers(),
       ]);
 
-      const dataStates = await resStates.json();
-      const dataOfficers = await resOfficers.json();
-
-      if (dataStates.success) setStates(dataStates.data.states || []);
-      if (dataOfficers.success) {
+      if (resStates.data?.success) setStates(resStates.data.data.states || []);
+      if (resOfficers.data?.success) {
         // Filter only state_officer roles
-        const stateOfficers = (dataOfficers.data.officers || []).filter(
-          (o) => o.user.role === 'state_officer'
+        const stateOfficers = (resOfficers.data.data.officers || []).filter(
+          (o) => o.user?.role === 'state_officer'
         );
         setOfficers(stateOfficers);
       }
     } catch (err) {
       console.error('Error loading state governance data:', err);
+      toast.error(err.response?.data?.message || 'Error loading state governance data');
     } finally {
       setLoading(false);
     }
@@ -85,25 +83,15 @@ const StateGovernancePage = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/admin/states', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(stateForm),
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to add state.');
+      const res = await adminService.createState(stateForm);
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to add state.');
 
       toast.success(`State "${stateForm.name}" added to National Procurement Network!`);
       setAddStateModal(false);
       setStateForm({ name: '', code: '', zone: 'North', nodalHeadName: '', nodalHeadMobile: '', nodalHeadEmail: '', description: '' });
       fetchData();
     } catch (err) {
-      toast.error(err.message || 'Error adding state');
+      toast.error(err.response?.data?.message || err.message || 'Error adding state');
     } finally {
       setSubmitting(false);
     }
@@ -114,25 +102,25 @@ const StateGovernancePage = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/admin/state-officers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(officerForm),
-      });
+      const res = await adminService.createStateOfficer(officerForm);
+      if (!res.data?.success) throw new Error(res.data?.message || 'Failed to create State Officer account.');
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to create State Officer account.');
-
-      toast.success(`State Officer account created for ${officerForm.state}! Employee ID: ${data.data.user.employeeId}`);
+      const empId = res.data?.data?.user?.employeeId || '';
+      toast.success(`State Officer account created for ${officerForm.state}! Employee ID: ${empId}`);
       setAddOfficerModal(false);
-      setOfficerForm({ name: '', mobile: '', email: '', password: 'Kisan@123', state: '', department: 'Procurement & Mandi Board', departmentRole: 'State Procurement Officer', designation: 'State Procurement / Nodal Officer' });
+      setOfficerForm({
+        name: '',
+        mobile: '',
+        email: '',
+        password: 'Kisan@123',
+        state: '',
+        department: 'Procurement & Mandi Board',
+        departmentRole: 'State Procurement Officer',
+        designation: 'State Procurement / Nodal Officer',
+      });
       fetchData();
     } catch (err) {
-      toast.error(err.message || 'Error creating State Officer');
+      toast.error(err.response?.data?.message || err.message || 'Error creating State Officer');
     } finally {
       setSubmitting(false);
     }

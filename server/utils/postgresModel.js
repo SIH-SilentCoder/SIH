@@ -131,6 +131,11 @@ function setPath(document, path, value) {
 }
 
 function matchesValue(value, expected) {
+  if (expected instanceof RegExp) {
+    return Array.isArray(value)
+      ? value.some((item) => expected.test(String(item ?? '')))
+      : expected.test(String(value ?? ''));
+  }
   if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
     return Object.entries(expected).every(([operator, operand]) => {
       if (operator === '$ne') return !valuesEqual(value, operand);
@@ -154,7 +159,7 @@ function matchesValue(value, expected) {
       if (operator === '$regex') {
         try {
           const flags = expected.$options || '';
-          const re = new RegExp(operand, flags);
+          const re = operand instanceof RegExp ? operand : new RegExp(operand, flags);
           return Array.isArray(value)
             ? value.some((item) => re.test(String(item || '')))
             : re.test(String(value || ''));

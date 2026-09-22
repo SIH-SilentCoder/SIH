@@ -13,7 +13,7 @@ const officerProfileSchema = new mongoose.Schema(
     centreId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ProcurementCentre',
-      required: true,
+      required: false,
       index: true,
     },
     employeeId: {
@@ -25,8 +25,16 @@ const officerProfileSchema = new mongoose.Schema(
       trim: true,
       default: 'Procurement Officer',
     },
+    state: {
+      type: String,
+      trim: true,
+    },
+    district: {
+      type: String,
+      trim: true,
+    },
   },
   { timestamps: true }
 );
 
-module.exports = new PostgresModel('OfficerProfile', {}, {}, officerProfileSchema);
+module.exports = new PostgresModel('OfficerProfile', { designation: 'Procurement Officer' }, {}, officerProfileSchema);

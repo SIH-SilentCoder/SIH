@@ -90,6 +90,7 @@ export const AuthProvider = ({ children }) => {
     const { user: userData, accessToken, mustChangePassword } = res.data.data;
 
     localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('token', accessToken);
     localStorage.setItem('user', JSON.stringify(userData));
     setToken(accessToken);
     setUser(userData);
@@ -101,6 +102,7 @@ export const AuthProvider = ({ children }) => {
     const { user: userData, accessToken } = res.data.data;
 
     localStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('token', accessToken);
     localStorage.setItem('user', JSON.stringify(userData));
     setToken(accessToken);
     setUser(userData);
@@ -114,6 +116,7 @@ export const AuthProvider = ({ children }) => {
       // Ignore server error, proceed with local logout
     }
     localStorage.removeItem('accessToken');
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
     setToken(null);
     setUser(null);

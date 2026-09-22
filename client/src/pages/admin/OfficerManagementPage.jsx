@@ -20,12 +20,27 @@ import { INDIAN_STATES, STATE_DISTRICTS } from '../../utils/locations';
 const APPOINTABLE_ROLES = {
   central_admin: [
     { value: 'state_officer', label: 'State Nodal Officer (SPO)' },
+    { value: 'district_officer', label: 'District Nodal Officer (DNO)' },
+    { value: 'centre_head', label: 'Procurement Centre Head (PCH)' },
+    { value: 'procurement_officer', label: 'Procurement Officer (PO)' },
+    { value: 'quality_staff', label: 'Quality & Weighing Staff (QWS)' },
+    { value: 'data_staff', label: 'Data / System Staff (DSS)' },
+    { value: 'gate_staff', label: 'Gate / Verification Staff (GVS)' },
   ],
   state_officer: [
     { value: 'district_officer', label: 'District Nodal Officer (DNO)' },
+    { value: 'centre_head', label: 'Procurement Centre Head (PCH)' },
+    { value: 'procurement_officer', label: 'Procurement Officer (PO)' },
+    { value: 'quality_staff', label: 'Quality & Weighing Staff (QWS)' },
+    { value: 'data_staff', label: 'Data / System Staff (DSS)' },
+    { value: 'gate_staff', label: 'Gate / Verification Staff (GVS)' },
   ],
   district_officer: [
     { value: 'centre_head', label: 'Procurement Centre Head (PCH)' },
+    { value: 'procurement_officer', label: 'Procurement Officer (PO)' },
+    { value: 'quality_staff', label: 'Quality & Weighing Staff (QWS)' },
+    { value: 'data_staff', label: 'Data / System Staff (DSS)' },
+    { value: 'gate_staff', label: 'Gate / Verification Staff (GVS)' },
   ],
   centre_head: [
     { value: 'procurement_officer', label: 'Procurement Officer (PO)' },
@@ -202,9 +217,27 @@ const OfficerManagementPage = () => {
                   </>
                 )}
                 {centres.length > 0 && (
-                  <Select label="Assign to Centre (Optional)" value={form.centreId} onChange={(e) => setForm({ ...form, centreId: e.target.value })}>
+                  <Select
+                    label="Assign to Centre (Optional)"
+                    value={form.centreId}
+                    onChange={(e) => {
+                      const selectedC = centres.find((c) => c._id === e.target.value);
+                      setForm({
+                        ...form,
+                        centreId: e.target.value,
+                        state: form.state || selectedC?.state || '',
+                        district: form.district || selectedC?.district || '',
+                      });
+                    }}
+                  >
                     <option value="">No Centre Assignment</option>
-                    {centres.map((c) => <option key={c._id} value={c._id}>{c.name} — {c.district}</option>)}
+                    {(centres.filter((c) => {
+                      if (form.district) return c.district?.toLowerCase() === form.district.toLowerCase();
+                      if (form.state) return c.state?.toLowerCase() === form.state.toLowerCase();
+                      return true;
+                    })).map((c) => (
+                      <option key={c._id} value={c._id}>{c.name} ({c.district}, {c.state})</option>
+                    ))}
                   </Select>
                 )}
                 <Input label="Designation (Optional)" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} placeholder="e.g. Senior Procurement Officer" leftIcon={<Briefcase className="w-4 h-4" />} />
