@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
 import { adminService } from '../../services';
+import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
 
 const STATE_DEPARTMENTS = [
@@ -16,6 +17,7 @@ const STATE_DEPARTMENTS = [
 ];
 
 const StateGovernancePage = () => {
+  const { user } = useAuth();
   const [states, setStates] = useState([]);
   const [officers, setOfficers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -222,14 +224,16 @@ const StateGovernancePage = () => {
           </div>
 
           <div className="flex items-center gap-3 w-full md:w-auto">
-            <button
-              type="button"
-              onClick={() => setAddStateModal(true)}
-              className="flex-1 md:flex-initial px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-2xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2"
-            >
-              <Landmark className="w-4 h-4" />
-              <span>Add New State</span>
-            </button>
+            {user?.role === 'central_admin' && (
+              <button
+                type="button"
+                onClick={() => setAddStateModal(true)}
+                className="flex-1 md:flex-initial px-5 py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-2xl text-xs font-bold shadow-md transition flex items-center justify-center gap-2"
+              >
+                <Landmark className="w-4 h-4" />
+                <span>Add New State</span>
+              </button>
+            )}
 
             <button
               type="button"

@@ -8,148 +8,158 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const NAV_SECTIONS = [
-  {
-    title: 'Core Command',
-    items: [
-      { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    ],
-  },
-  {
-    title: 'Procurement & Monitoring',
-    items: [
-      {
-        to: '/admin/procurement',
-        icon: Truck,
-        label: 'Procurement',
-        badge: 'Live',
-        subItems: [
-          { to: '/admin/procurement?tab=overview', label: 'Procurement Overview' },
-          { to: '/admin/procurement?tab=statewise', label: 'State-wise Procurement' },
-          { to: '/admin/procurement?tab=commodity', label: 'Crop / Commodity' },
-        ],
-      },
-      {
-        to: '/admin/states',
-        icon: Landmark,
-        label: 'States',
-        subItems: [
-          { to: '/admin/states?tab=overview', label: 'State Overview' },
-          { to: '/admin/states?tab=performance', label: 'State Performance' },
-        ],
-      },
-      {
-        to: '/admin/centres',
-        icon: Building2,
-        label: 'Procurement Centres',
-        subItems: [
-          { to: '/admin/centres?tab=overview', label: 'Centre Overview' },
-          { to: '/admin/centres?tab=utilization', label: 'Capacity & Performance' },
-        ],
-      },
-      {
-        to: '/admin/farmers',
-        icon: Users,
-        label: 'Farmers',
-        subItems: [
-          { to: '/admin/farmers?tab=registered', label: 'Registered Farmers' },
-          { to: '/admin/farmers?tab=verified', label: 'Verified Farmers' },
-          { to: '/admin/farmers?tab=statistics', label: 'Farmer Statistics' },
-        ],
-      },
-      {
-        to: '/admin/crops',
-        icon: Wheat,
-        label: 'Crops / Commodities',
-        subItems: [
-          { to: '/admin/crops?tab=list', label: 'Commodity List' },
-          { to: '/admin/crops?tab=msp', label: 'MSP & Guidelines' },
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Governance & Oversight',
-    items: [
-      {
-        to: '/admin/org-structure',
-        icon: Landmark,
-        label: 'Apex Org Hierarchy',
-        badge: 'Central',
-        badgeColor: 'bg-emerald-100 text-emerald-800',
-      },
-      {
-        to: '/admin/state-governance',
-        icon: Landmark,
-        label: 'State Expansion & Governance',
-        badge: 'New',
-        badgeColor: 'bg-rose-100 text-rose-800',
-        subItems: [
-          { to: '/admin/state-governance?tab=states', label: 'Managed States' },
-          { to: '/admin/state-governance?tab=officers', label: 'State Officers (SPO)' },
-        ],
-      },
-      {
-        to: '/admin/staff',
-        icon: UserCog,
-        label: 'Officers & Administration',
-        subItems: [
-          { to: '/admin/staff?tab=subordinates', label: 'Officer Directory' },
-          { to: '/admin/staff?tab=create', label: 'Officer Appointments' },
-          { to: '/admin/staff?tab=hierarchy', label: 'Hierarchy Tree' },
-        ],
-      },
-      {
-        to: '/state/department-proposals',
-        icon: ShieldCheck,
-        label: 'State Proposals & Approvals',
-        badge: 'Workflow',
-        badgeColor: 'bg-emerald-100 text-emerald-800',
-      },
-      {
-        to: '/admin/approvals',
-        icon: CheckSquare,
-        label: 'Approvals',
-        badge: '3',
-        badgeColor: 'bg-amber-100 text-amber-800',
-        subItems: [
-          { to: '/admin/approvals?tab=pending', label: 'Pending Approvals' },
-          { to: '/admin/approvals?tab=approved', label: 'Approved Actions' },
-          { to: '/admin/approvals?tab=rejected', label: 'Rejected Requests' },
-        ],
-      },
-      {
-        to: '/admin/payments',
-        icon: CreditCard,
-        label: 'Payments',
-        subItems: [
-          { to: '/admin/payments?tab=overview', label: 'Payment Overview' },
-          { to: '/admin/payments?tab=pending', label: 'Pending DBT Disbursals' },
-          { to: '/admin/payments?tab=completed', label: 'Settled Payments' },
-        ],
-      },
-      {
-        to: '/admin/analytics',
-        icon: BarChart3,
-        label: 'Reports & Analytics',
-      },
-      {
-        to: '/admin/alerts',
-        icon: Bell,
-        label: 'Alerts & Notifications',
-        badge: 'Critical',
-        badgeColor: 'bg-rose-100 text-rose-800',
-      },
-    ],
-  },
-  {
-    title: 'System & Support',
-    items: [
-      { to: '/admin/settings', icon: Settings, label: 'Settings' },
-      { to: '/admin/help', icon: HelpCircle, label: 'Help & Support' },
-    ],
-  },
-];
+const getNavSections = (user) => {
+  const isStateOfficer = user?.role === 'state_officer';
+
+  return [
+    {
+      title: 'Core Command',
+      items: [
+        { to: '/admin/dashboard', icon: LayoutDashboard, label: isStateOfficer ? `${user?.state || 'State'} Dashboard` : 'Dashboard' },
+      ],
+    },
+    {
+      title: 'Procurement & Monitoring',
+      items: [
+        {
+          to: '/admin/procurement',
+          icon: Truck,
+          label: 'Procurement',
+          badge: 'Live',
+          subItems: [
+            { to: '/admin/procurement?tab=overview', label: 'Procurement Overview' },
+            ...(!isStateOfficer ? [{ to: '/admin/procurement?tab=statewise', label: 'State-wise Procurement' }] : []),
+            { to: '/admin/procurement?tab=commodity', label: 'Crop / Commodity' },
+          ],
+        },
+        ...(!isStateOfficer ? [
+          {
+            to: '/admin/states',
+            icon: Landmark,
+            label: 'States',
+            subItems: [
+              { to: '/admin/states?tab=overview', label: 'State Overview' },
+              { to: '/admin/states?tab=performance', label: 'State Performance' },
+            ],
+          },
+        ] : []),
+        {
+          to: '/admin/centres',
+          icon: Building2,
+          label: isStateOfficer ? `${user?.state || 'State'} Mandis / Centres` : 'Procurement Centres',
+          subItems: [
+            { to: '/admin/centres?tab=overview', label: 'Centre Overview' },
+            { to: '/admin/centres?tab=utilization', label: 'Capacity & Performance' },
+          ],
+        },
+        {
+          to: '/admin/farmers',
+          icon: Users,
+          label: 'Farmers',
+          subItems: [
+            { to: '/admin/farmers?tab=registered', label: 'Registered Farmers' },
+            { to: '/admin/farmers?tab=verified', label: 'Verified Farmers' },
+            { to: '/admin/farmers?tab=statistics', label: 'Farmer Statistics' },
+          ],
+        },
+        {
+          to: '/admin/crops',
+          icon: Wheat,
+          label: 'Crops / Commodities',
+          subItems: [
+            { to: '/admin/crops?tab=list', label: 'Commodity List' },
+            { to: '/admin/crops?tab=msp', label: 'MSP & Guidelines' },
+          ],
+        },
+      ],
+    },
+    {
+      title: 'Governance & Oversight',
+      items: [
+        ...(!isStateOfficer ? [
+          {
+            to: '/admin/org-structure',
+            icon: Landmark,
+            label: 'Apex Org Hierarchy',
+            badge: 'Central',
+            badgeColor: 'bg-emerald-100 text-emerald-800',
+          },
+          {
+            to: '/admin/state-governance',
+            icon: Landmark,
+            label: 'State Expansion & Governance',
+            badge: 'New',
+            badgeColor: 'bg-rose-100 text-rose-800',
+            subItems: [
+              { to: '/admin/state-governance?tab=states', label: 'Managed States' },
+              { to: '/admin/state-governance?tab=officers', label: 'State Officers (SPO)' },
+            ],
+          },
+        ] : []),
+        {
+          to: '/admin/staff',
+          icon: UserCog,
+          label: isStateOfficer ? `${user?.state || 'State'} Officers & Appointments` : 'Officers & Administration',
+          subItems: [
+            { to: '/admin/staff?tab=subordinates', label: 'Officer Directory' },
+            { to: '/admin/staff?tab=create', label: 'Officer Appointments' },
+            { to: '/admin/staff?tab=hierarchy', label: 'Hierarchy Tree' },
+          ],
+        },
+        {
+          to: '/state/department-proposals',
+          icon: ShieldCheck,
+          label: 'State Proposals & Approvals',
+          badge: 'Workflow',
+          badgeColor: 'bg-emerald-100 text-emerald-800',
+        },
+        ...(!isStateOfficer ? [
+          {
+            to: '/admin/approvals',
+            icon: CheckSquare,
+            label: 'Approvals',
+            badge: '3',
+            badgeColor: 'bg-amber-100 text-amber-800',
+            subItems: [
+              { to: '/admin/approvals?tab=pending', label: 'Pending Approvals' },
+              { to: '/admin/approvals?tab=approved', label: 'Approved Actions' },
+              { to: '/admin/approvals?tab=rejected', label: 'Rejected Requests' },
+            ],
+          },
+        ] : []),
+        {
+          to: '/admin/payments',
+          icon: CreditCard,
+          label: 'Payments',
+          subItems: [
+            { to: '/admin/payments?tab=overview', label: 'Payment Overview' },
+            { to: '/admin/payments?tab=pending', label: 'Pending DBT Disbursals' },
+            { to: '/admin/payments?tab=completed', label: 'Settled Payments' },
+          ],
+        },
+        {
+          to: '/admin/analytics',
+          icon: BarChart3,
+          label: 'Reports & Analytics',
+        },
+        {
+          to: '/admin/alerts',
+          icon: Bell,
+          label: 'Alerts & Notifications',
+          badge: 'Critical',
+          badgeColor: 'bg-rose-100 text-rose-800',
+        },
+      ],
+    },
+    {
+      title: 'System & Support',
+      items: [
+        { to: '/admin/settings', icon: Settings, label: 'Settings' },
+        { to: '/admin/help', icon: HelpCircle, label: 'Help & Support' },
+      ],
+    },
+  ];
+};
 
 const AdminLayout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -167,6 +177,9 @@ const AdminLayout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const isStateOfficer = user?.role === 'state_officer';
+  const navSections = getNavSections(user);
+
   const handleLogout = async () => {
     await logout();
     navigate('/login');
@@ -178,7 +191,7 @@ const AdminLayout = ({ children }) => {
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-[#0b1329] text-slate-300 select-none">
-      {/* CPO Emblem & Portal Identity */}
+      {/* Emblem & Portal Identity */}
       <div className="p-4 border-b border-slate-800/80 bg-[#070d1e]">
         <div className="flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-600 via-primary-700 to-emerald-600 flex items-center justify-center shadow-md flex-shrink-0">
@@ -186,12 +199,14 @@ const AdminLayout = ({ children }) => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-black uppercase tracking-wider text-amber-400 leading-tight">
-              Government of India
+              {isStateOfficer ? `${user?.state || 'State'} Govt. Initiative` : 'Government of India'}
             </p>
             <p className="text-xs font-bold text-white leading-tight truncate mt-0.5">
-              Central Procurement Org.
+              {isStateOfficer ? `${user?.state || 'State'} Mandi Board` : 'Central Procurement Org.'}
             </p>
-            <p className="text-[10px] text-slate-400 truncate">Food &amp; Public Distribution</p>
+            <p className="text-[10px] text-slate-400 truncate">
+              {isStateOfficer ? 'State Nodal Department' : 'Food & Public Distribution'}
+            </p>
           </div>
         </div>
       </div>
@@ -200,7 +215,7 @@ const AdminLayout = ({ children }) => {
       <div className="p-3 mx-3 mt-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
         <div className="flex items-center justify-between">
           <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
-            {roleLabel || 'Central Officer'}
+            {roleLabel || (isStateOfficer ? 'State Nodal Officer' : 'Central Officer')}
           </span>
           {user?.employeeId && (
             <span className="text-[10px] font-mono font-bold text-slate-300">
@@ -209,12 +224,14 @@ const AdminLayout = ({ children }) => {
           )}
         </div>
         <p className="text-xs font-semibold text-white truncate mt-1">{user?.name || 'Administrator'}</p>
-        <p className="text-[10px] text-slate-400 truncate">HQ: New Delhi • Executive Command</p>
+        <p className="text-[10px] text-slate-400 truncate">
+          {isStateOfficer ? `Jurisdiction: ${user?.state || 'State'} Only` : 'HQ: New Delhi • Executive Command'}
+        </p>
       </div>
 
       {/* Navigation Sections */}
       <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-        {NAV_SECTIONS.map((section, sIdx) => (
+        {navSections.map((section, sIdx) => (
           <div key={sIdx}>
             <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 px-2 mb-1.5">
               {section.title}

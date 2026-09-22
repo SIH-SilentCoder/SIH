@@ -15,10 +15,11 @@ const OfficerLayout = ({ children }) => {
     navigate('/login');
   };
 
-  // Roles authorized to approve farmer KYC applications
+  const isStateOfficer = user?.role === 'state_officer';
+
+  // Roles authorized to approve farmer KYC applications (centre & district level officers)
   const KYC_APPROVER_ROLES = [
     'central_admin',
-    'state_officer',
     'district_officer',
     'centre_head',
     'procurement_officer',
@@ -26,15 +27,12 @@ const OfficerLayout = ({ children }) => {
     'officer'
   ];
 
-  // Roles authorized for gate entry scanning
+  // Roles authorized for gate entry scanning (centre gate staff)
   const GATE_ENTRY_ROLES = [
     'gate_staff',
     'centre_head',
     'procurement_officer',
     'admin',
-    'central_admin',
-    'state_officer',
-    'district_officer',
     'officer'
   ];
 
@@ -42,22 +40,26 @@ const OfficerLayout = ({ children }) => {
     ? 'Quality & Weighing Station'
     : user?.role === 'gate_staff'
     ? 'Gate & Queue Overview'
+    : isStateOfficer
+    ? 'State Command Dashboard'
     : 'Dashboard & Queue';
 
   const navItems = [
-    { to: '/officer/dashboard', icon: LayoutDashboard, label: dashboardLabel },
-    ...(GATE_ENTRY_ROLES.includes(user?.role)
+    { to: isStateOfficer ? '/admin/dashboard' : '/officer/dashboard', icon: LayoutDashboard, label: dashboardLabel },
+    ...(!isStateOfficer && GATE_ENTRY_ROLES.includes(user?.role)
       ? [{ to: '/officer/gate-entry', icon: QrCode, label: 'Gate Entry & Scan' }]
       : []),
-    ...(KYC_APPROVER_ROLES.includes(user?.role) || (user?.level && user?.level <= 3)
+    ...(!isStateOfficer && (KYC_APPROVER_ROLES.includes(user?.role) || (user?.level && user?.level <= 3))
       ? [{ to: '/officer/kyc-approvals', icon: UserCheck, label: 'Farmer KYC Approvals' }]
       : []),
-    { to: '/officer/bookings', icon: ClipboardList, label: "Today's Bookings" },
+    ...(!isStateOfficer
+      ? [{ to: '/officer/bookings', icon: ClipboardList, label: "Today's Bookings" }]
+      : []),
     // Show staff management for Centre Heads and higher
     ...(CREATOR_ROLES.includes(user?.role) || user?.level <= 4
-      ? [{ to: '/officer/staff', icon: Users, label: 'Staff Management' }]
+      ? [{ to: isStateOfficer ? '/admin/staff' : '/officer/staff', icon: Users, label: 'Staff Management' }]
       : []),
-    ...(user?.role === 'state_officer' || user?.role === 'central_admin' || (user?.level && user?.level <= 2)
+    ...(isStateOfficer || user?.role === 'central_admin' || (user?.level && user?.level <= 2)
       ? [{ to: '/state/department-proposals', icon: Shield, label: 'State Proposals & Approvals' }]
       : []),
   ];

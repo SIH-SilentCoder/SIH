@@ -186,7 +186,7 @@ function App() {
             <Route
               path="/officer/gate-entry"
               element={
-                <ProtectedRoute allowedRoles={['gate_staff', 'centre_head', 'procurement_officer', 'admin', 'central_admin', 'state_officer', 'district_officer', 'officer']}>
+                <ProtectedRoute allowedRoles={['gate_staff', 'centre_head', 'procurement_officer', 'admin', 'central_admin', 'district_officer', 'officer']}>
                   <GateEntryVerificationPage />
                 </ProtectedRoute>
               }
@@ -202,7 +202,7 @@ function App() {
             <Route
               path="/officer/kyc-approvals"
               element={
-                <ProtectedRoute allowedRoles={['central_admin', 'state_officer', 'district_officer', 'centre_head', 'procurement_officer', 'admin', 'officer']}>
+                <ProtectedRoute allowedRoles={['central_admin', 'district_officer', 'centre_head', 'procurement_officer', 'admin', 'officer']}>
                   <OfficerKycApprovalsPage />
                 </ProtectedRoute>
               }
@@ -300,7 +300,7 @@ function App() {
             <Route
               path="/admin/states"
               element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <ProtectedRoute allowedRoles={['central_admin', 'admin']}>
                   <StatePerformancePage />
                 </ProtectedRoute>
               }
@@ -340,7 +340,7 @@ function App() {
             <Route
               path="/admin/state-governance"
               element={
-                <ProtectedRoute allowedRoles={ADMIN_ROLES}>
+                <ProtectedRoute allowedRoles={['central_admin', 'admin']}>
                   <StateGovernancePage />
                 </ProtectedRoute>
               }

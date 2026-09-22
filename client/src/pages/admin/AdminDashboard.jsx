@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
 import { adminService, centreService, cropService } from '../../services';
+import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, extractError } from '../../utils/constants';
 
 const STATE_MAPPING = [
@@ -82,6 +83,10 @@ const RECENT_ADMIN_ACTIVITIES = [
 ];
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
+  const isStateOfficer = user?.role === 'state_officer';
+  const userState = user?.state || 'Punjab';
+
   const [data, setData] = useState(null);
   const [centres, setCentres] = useState([]);
   const [crops, setCrops] = useState([]);
@@ -130,18 +135,22 @@ const AdminDashboard = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <span>National Portal</span>
+              <span>{isStateOfficer ? `${userState} State Portal` : 'National Portal'}</span>
               <span>/</span>
-              <span className="text-blue-700 font-bold">Central CPO Dashboard</span>
+              <span className="text-blue-700 font-bold">
+                {isStateOfficer ? `${userState} State Nodal Dashboard` : 'Central CPO Dashboard'}
+              </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
-              <span>National Foodgrain Procurement Command</span>
+              <span>{isStateOfficer ? `${userState} Foodgrain Procurement Command` : 'National Foodgrain Procurement Command'}</span>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                 2026 Season Active
               </span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Consolidated procurement surveillance, state quotas, MSP compliance, and Direct Benefit Transfer monitoring.
+              {isStateOfficer
+                ? `Real-time mandi surveillance, crop intake, and Direct Benefit Transfer monitoring for ${userState}.`
+                : 'Consolidated procurement surveillance, state quotas, MSP compliance, and Direct Benefit Transfer monitoring.'}
             </p>
           </div>
 
@@ -154,11 +163,11 @@ const AdminDashboard = () => {
               <span>Refresh Metrics</span>
             </button>
             <Link
-              to="/admin/reports"
+              to={isStateOfficer ? '/state/department-proposals' : '/admin/reports'}
               className="px-3.5 py-2 bg-[#0b1329] hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-sm"
             >
               <FileCheck2 className="w-3.5 h-3.5 text-amber-400" />
-              <span>Executive Brief</span>
+              <span>{isStateOfficer ? 'State Proposals' : 'Executive Brief'}</span>
             </Link>
           </div>
         </div>
@@ -172,16 +181,22 @@ const AdminDashboard = () => {
 
         {/* 6 Top Executive KPI Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-          {/* Card 1: Total States */}
+          {/* Card 1: State / Jurisdiction */}
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-300 transition">
             <div className="flex items-center justify-between text-slate-500 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">States Covered</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {isStateOfficer ? 'Assigned State' : 'States Covered'}
+              </span>
               <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
                 <Landmark className="w-3.5 h-3.5" />
               </div>
             </div>
-            <p className="text-2xl font-black text-slate-900">{totalStates}</p>
-            <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">Active Procurement Zones</p>
+            <p className="text-2xl font-black text-slate-900 truncate">
+              {isStateOfficer ? userState : totalStates}
+            </p>
+            <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+              {isStateOfficer ? 'State Jurisdiction Active' : 'Active Procurement Zones'}
+            </p>
           </div>
 
           {/* Card 2: Total Centres */}
@@ -251,21 +266,25 @@ const AdminDashboard = () => {
 
         {/* Grid 1: STATE-WISE PROCUREMENT & CROP/COMMODITY PROCUREMENT */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* 1. STATE-WISE PROCUREMENT TABLE (7 Cols) */}
+          {/* 1. STATE-SPECIFIC OR NATIONAL PROCUREMENT TABLE (7 Cols) */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h2 className="text-sm sm:text-base font-black text-slate-900 flex items-center gap-2">
                   <Landmark className="w-4 h-4 text-blue-700" />
-                  <span>State-Wise Procurement Realization</span>
+                  <span>{isStateOfficer ? `${userState} Mandi Realization` : 'State-Wise Procurement Realization'}</span>
                 </h2>
-                <p className="text-xs text-slate-500 mt-0.5">Consolidated performance across all participating state agencies</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isStateOfficer
+                    ? `Live procurement status across active procurement centres in ${userState}`
+                    : 'Consolidated performance across all participating state agencies'}
+                </p>
               </div>
               <Link
-                to="/admin/states"
+                to={isStateOfficer ? '/admin/centres' : '/admin/states'}
                 className="text-xs font-bold text-blue-700 hover:text-blue-800 flex items-center gap-1"
               >
-                <span>All States</span>
+                <span>{isStateOfficer ? 'Manage Mandis' : 'All States'}</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -274,41 +293,64 @@ const AdminDashboard = () => {
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-4">State</th>
-                    <th className="py-3 px-3">Farmers</th>
-                    <th className="py-3 px-3">Centres</th>
-                    <th className="py-3 px-3">Procured (MT)</th>
-                    <th className="py-3 px-3">Disbursed (₹)</th>
+                    <th className="py-3 px-4">{isStateOfficer ? 'Centre / Mandi' : 'State'}</th>
+                    <th className="py-3 px-3">{isStateOfficer ? 'District' : 'Farmers'}</th>
+                    <th className="py-3 px-3">{isStateOfficer ? 'Capacity' : 'Centres'}</th>
+                    <th className="py-3 px-3">{isStateOfficer ? 'Operating Hours' : 'Procured (MT)'}</th>
                     <th className="py-3 px-4 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-medium">
-                  {STATE_MAPPING.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4 font-bold text-slate-900">{row.state}</td>
-                      <td className="py-3 px-3 text-slate-600">{row.farmers.toLocaleString('en-IN')}</td>
-                      <td className="py-3 px-3 text-slate-600">{row.centres}</td>
-                      <td className="py-3 px-3 font-mono font-bold text-slate-800">
-                        {row.procuredMT.toLocaleString('en-IN')}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-emerald-700 font-bold">
-                        ₹{row.paymentCr.toFixed(2)} Cr
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            row.status === 'High Volume'
-                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                              : row.status === 'On Track'
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-amber-100 text-amber-800 border border-amber-200'
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {isStateOfficer ? (
+                    centres.length > 0 ? (
+                      centres.slice(0, 6).map((c, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-4 font-bold text-slate-900">{c.name}</td>
+                          <td className="py-3 px-3 text-slate-600">{c.district}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-slate-800">{c.dailyCapacity} qtl</td>
+                          <td className="py-3 px-3 text-slate-600">{c.operatingHours?.start || '09:00'} - {c.operatingHours?.end || '17:00'}</td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${c.isActive ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-amber-100 text-amber-800 border border-amber-200'}`}>
+                              {c.isActive ? 'Active' : 'Pending Approval'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="py-6 text-center text-slate-400">
+                          No mandis registered in {userState} yet.
+                        </td>
+                      </tr>
+                    )
+                  ) : (
+                    STATE_MAPPING.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-900">{row.state}</td>
+                        <td className="py-3 px-3 text-slate-600">{row.farmers.toLocaleString('en-IN')}</td>
+                        <td className="py-3 px-3 text-slate-600">{row.centres}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-slate-800">
+                          {row.procuredMT.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-emerald-700 font-bold">
+                          ₹{row.paymentCr.toFixed(2)} Cr
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              row.status === 'High Volume'
+                                ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                                : row.status === 'On Track'
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}
+                          >
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
