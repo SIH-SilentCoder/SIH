@@ -140,6 +140,25 @@ const verifyAadhaarOtp = async (req, res, next) => {
 
     const kycResult = await aadhaarService.verifyAadhaarOtp(referenceId, otp, req.user);
 
+    // Persist verified Aadhaar details to FarmerProfile immediately in database
+    try {
+      const cleanAadhaar = kycResult.aadhaarDetails?.maskedAadhaar;
+      await FarmerProfile.findOneAndUpdate(
+        { userId: req.user._id },
+        {
+          aadhaarNumber: cleanAadhaar,
+          aadhaarVerified: true,
+          aadhaarDetails: kycResult.aadhaarDetails,
+          aadhaarSeedingStatus: kycResult.aadhaarSeedingStatus || 'Seeded',
+          npciStatus: kycResult.npciStatus || 'Active / DBT Enabled',
+          bankDetails: kycResult.bankDetails,
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    } catch (saveErr) {
+      console.warn('[Farmer Controller] Could not persist Aadhaar verification:', saveErr.message);
+    }
+
     res.json(
       new ApiResponse(200, {
         verified: true,
@@ -275,6 +294,22 @@ const verifyKisanIdOtp = async (req, res, next) => {
       verifiedAt: new Date().toISOString(),
     };
 
+    // Persist verified Kisan ID details to FarmerProfile immediately in database
+    try {
+      await FarmerProfile.findOneAndUpdate(
+        { userId: req.user._id },
+        {
+          kisanId: cleanId,
+          farmerIdNumber: cleanId,
+          kisanIdVerified: true,
+          kisanDetails: kisanData,
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    } catch (saveErr) {
+      console.warn('[Farmer Controller] Could not persist Kisan ID verification:', saveErr.message);
+    }
+
     res.json(
       new ApiResponse(200, {
         verified: true,
@@ -385,7 +420,28 @@ const submitKyc = async (req, res, next) => {
 // GET /api/farmers/kyc-status — Retrieve KYC status and verified details
 const getKycStatus = async (req, res, next) => {
   try {
-    let profile = await FarmerProfile.findOne({ userId: req.user._id });
+    const profiles = await FarmerProfile.find({ userId: req.user._id });
+    let profile = null;
+
+    if (profiles && profiles.length > 0) {
+      const priority = { Verified: 3, Pending: 2, Rejected: 1, 'Not Started': 0 };
+      profiles.sort((a, b) => {
+        const pDiff = (priority[b.kycStatus] || 0) - (priority[a.kycStatus] || 0);
+        if (pDiff !== 0) return pDiff;
+        return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+      });
+      profile = profiles[0];
+
+      // Clean up any extraneous duplicate profiles for this user
+      if (profiles.length > 1) {
+        for (let i = 1; i < profiles.length; i++) {
+          try {
+            await FarmerProfile.findByIdAndDelete(profiles[i]._id);
+          } catch (delErr) {}
+        }
+      }
+    }
+
     if (!profile) {
       profile = await FarmerProfile.create({
         userId: req.user._id,

@@ -70,6 +70,28 @@ const FarmerDashboard = () => {
       }
     };
     fetchData();
+
+    // Auto-refresh KYC status every 30 seconds when pending (so officer approval reflects without manual refresh)
+    const kycPollInterval = setInterval(async () => {
+      try {
+        const kycRes = await farmerService.getKycStatus();
+        const newKycData = kycRes.data?.data || null;
+        setKycData((prev) => {
+          // Only update if status changed
+          if (prev?.kycStatus !== newKycData?.kycStatus) {
+            if (newKycData?.kycStatus === 'Verified') {
+              toast.success('🎉 KYC Verified by District Officer! Slot booking is now unlocked.');
+            }
+            return newKycData;
+          }
+          return prev;
+        });
+      } catch {
+        // silent
+      }
+    }, 30000);
+
+    return () => clearInterval(kycPollInterval);
   }, []);
 
   const firstName = user?.name?.split(' ')[0] || 'Farmer';
@@ -106,27 +128,57 @@ const FarmerDashboard = () => {
       {kycData && (
         <div className="mb-6">
           {kycData.kycStatus === 'Verified' ? (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3 text-xs text-emerald-900 shadow-sm">
-              <div className="flex items-center gap-2.5">
-                <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                <div>
-                  <span className="font-bold">Farmer KYC Verified:</span> Aadhaar Seeded & NPCI DBT Active.
+            <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border-2 border-emerald-300 rounded-2xl shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-md">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-emerald-900 text-sm flex items-center gap-1.5">
+                      KYC Verified by District Officer
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    </p>
+                    <p className="text-xs text-emerald-700 mt-0.5">
+                      Aadhaar Seeded &amp; NPCI DBT Active — Slot booking unlocked. You can now book procurement slots.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    to="/farmer/book"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm whitespace-nowrap transition-all"
+                  >
+                    Book Slot Now →
+                  </Link>
+                  <Link to="/farmer/kyc" className="text-xs font-semibold text-emerald-700 hover:underline whitespace-nowrap">
+                    View KYC Details
+                  </Link>
                 </div>
               </div>
-              <Link to="/farmer/kyc" className="font-semibold text-emerald-700 hover:underline">
-                View KYC Details →
-              </Link>
             </div>
           ) : kycData.kycStatus === 'Pending' ? (
             <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-2xl flex items-center justify-between gap-3 text-xs text-amber-900 shadow-sm">
               <div className="flex items-center gap-2.5">
                 <Clock className="w-5 h-5 text-amber-600 flex-shrink-0 animate-pulse" />
                 <div>
-                  <span className="font-bold">KYC Application Pending:</span> Submitted successfully. Your KYC will be updated within 2 working days.
+                  <span className="font-bold">KYC Application Pending Officer Approval:</span> Submitted successfully. Slot booking activates once District Officer approves (auto-updates every 30s).
                 </div>
               </div>
-              <Link to="/farmer/kyc" className="font-bold text-amber-800 hover:underline px-3 py-1 bg-amber-200/70 rounded-lg">
+              <Link to="/farmer/kyc" className="font-bold text-amber-800 hover:underline px-3 py-1 bg-amber-200/70 rounded-lg whitespace-nowrap">
                 Check Status →
+              </Link>
+            </div>
+          ) : kycData.kycStatus === 'Rejected' ? (
+            <div className="p-3.5 bg-red-50 border border-red-300 rounded-2xl flex items-center justify-between gap-3 text-xs text-red-900 shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+                <div>
+                  <span className="font-bold">KYC Rejected:</span> Your KYC was rejected by the District Officer. Please re-submit with correct details.
+                </div>
+              </div>
+              <Link to="/farmer/kyc" className="font-bold text-red-800 hover:underline px-3 py-1 bg-red-200/70 rounded-lg whitespace-nowrap">
+                Re-submit KYC →
               </Link>
             </div>
           ) : (
@@ -138,7 +190,7 @@ const FarmerDashboard = () => {
                 <div>
                   <p className="font-bold text-gray-900 text-sm">Farmer KYC Pending Completion</p>
                   <p className="text-gray-600 mt-0.5">
-                    Complete your Aadhaar e-KYC & Kisan ID verification to ensure smooth slot booking and direct DBT payments.
+                    Complete your Aadhaar e-KYC &amp; Kisan ID verification to ensure smooth slot booking and direct DBT payments.
                   </p>
                 </div>
               </div>

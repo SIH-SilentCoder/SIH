@@ -126,7 +126,7 @@ const FarmerKycPage = () => {
       const data = res.data?.data;
       setKycData(data);
 
-      if (data?.aadhaarVerified) {
+      if (data?.aadhaarVerified || data?.aadhaarNumber) {
         setAadhaarVerified(true);
         setAadhaarSeedingStatus(data.aadhaarSeedingStatus || 'Seeded');
         setNpciStatus(data.npciStatus || 'Active / DBT Enabled');
@@ -135,9 +135,12 @@ const FarmerKycPage = () => {
           accountMasked: '****4921',
           ifsc: 'SBIN0001234',
         });
-        setFetchedDetails(data.aadhaarDetails);
+        setFetchedDetails(data.aadhaarDetails || {
+          maskedAadhaar: data.aadhaarNumber,
+          name: user?.name,
+        });
       }
-      if (data?.kisanId) {
+      if (data?.kisanIdVerified || data?.kisanId) {
         setKisanId(data.kisanId);
         setKisanVerified(true);
         setKisanDetails(data.kisanDetails || null);
@@ -423,24 +426,46 @@ const FarmerKycPage = () => {
           </div>
         )}
 
-        {/* Status Alert if Verified */}
+        {/* Status Alert if Verified — KYC Completed by Officer */}
         {kycStatus === 'Verified' && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-sm flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-emerald-600 flex-shrink-0" />
-              <div>
-                <p className="font-bold">Your Farmer Profile & KYC is Fully Verified</p>
-                <p className="text-xs text-emerald-700 mt-0.5">
-                  Aadhaar is seeded with your bank account, and NPCI DBT mapping is active. You have full access to slot bookings and MSP payouts.
-                </p>
+          <div className="relative overflow-hidden p-5 sm:p-6 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600 rounded-2xl shadow-lg text-white">
+            {/* Decorative circles */}
+            <div className="absolute -top-6 -right-6 w-28 h-28 bg-white/10 rounded-full" />
+            <div className="absolute -bottom-4 -left-4 w-20 h-20 bg-white/10 rounded-full" />
+
+            <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0 shadow-md border border-white/30">
+                  <ShieldCheck className="w-8 h-8 text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] uppercase font-bold tracking-widest bg-white/20 px-2.5 py-0.5 rounded-full">
+                      ✓ KYC Completed
+                    </span>
+                  </div>
+                  <p className="font-bold text-lg mt-1 text-white">
+                    KYC Verified by District Officer
+                  </p>
+                  <p className="text-sm text-emerald-100 mt-0.5">
+                    Aadhaar Seeded &amp; NPCI DBT Active — Slot booking fully unlocked. You can now book procurement slots and receive direct DBT payments.
+                  </p>
+                  {kycData?.kycRemarks && (
+                    <p className="text-xs text-emerald-200 mt-1.5 italic">
+                      Officer Remark: "{kycData.kycRemarks}"
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Link
+                  to="/farmer/book"
+                  className="px-5 py-2.5 bg-white hover:bg-emerald-50 text-emerald-700 text-sm font-bold rounded-xl shadow-md whitespace-nowrap transition-all"
+                >
+                  Book Slot Now →
+                </Link>
               </div>
             </div>
-            <Link
-              to="/farmer/book"
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm whitespace-nowrap"
-            >
-              Book Procurement Slot
-            </Link>
           </div>
         )}
 

@@ -425,45 +425,92 @@ const BookSlotPage = () => {
           ))}
         </div>
 
-        {/* KYC Approval Locked Alert Banner */}
-        {!loadingKyc && kycStatus !== 'Verified' && (
-          <div className="mb-6 p-5 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-sm space-y-3 animate-fadeIn text-amber-950">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-md">
-                <ShieldAlert className="w-6 h-6" />
+        {/* KYC Status Alert Banner — informational only, does NOT block form */}
+        {!loadingKyc && kycStatus === 'Verified' && (
+          <div className="mb-6 p-4 bg-emerald-50 border-2 border-emerald-300 rounded-2xl flex items-center justify-between gap-3 text-xs text-emerald-900 shadow-sm animate-fadeIn">
+            <div className="flex items-center gap-2.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+              <div>
+                <span className="font-bold">KYC Verified — Slot Booking Unlocked:</span> Aadhaar Seeded & NPCI DBT Active. You can book slots freely.
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded-lg bg-emerald-200 text-emerald-900 font-bold uppercase tracking-wide">Active</span>
+          </div>
+        )}
+
+        {!loadingKyc && kycStatus === 'Pending' && (
+          <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl shadow-sm animate-fadeIn">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                <ShieldAlert className="w-5 h-5" />
               </div>
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-bold text-amber-900">
-                    Slot Booking Locked — District Officer KYC Approval Required
-                  </h2>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-200 text-amber-900">
-                    {kycStatus === 'Pending' ? 'Approval Pending' : kycStatus === 'Rejected' ? 'KYC Rejected' : 'KYC Mandatory'}
-                  </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-sm font-bold text-amber-900">KYC Approval Pending — Slot Confirmation Restricted</h2>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-200 text-amber-900">Pending</span>
                 </div>
-                <p className="text-xs sm:text-sm text-amber-800 mt-1 leading-relaxed">
-                  {kycStatus === 'Pending'
-                    ? 'Your KYC application has been submitted and is currently pending approval by your District Procurement Officer. As per Government procurement regulations, slot booking activates once your KYC is approved.'
-                    : kycStatus === 'Rejected'
-                    ? `Your KYC application was rejected by the District Procurement Officer. Reason: "${kycRemarks || 'Invalid details'}". Please update and re-submit your KYC.`
-                    : 'You must complete Aadhaar e-KYC and Kisan ID verification before you can book procurement slots.'}
+                <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  Your KYC application is submitted and awaiting approval by the District Procurement Officer.
+                  You can browse mandis, crops and slots — but booking confirmation will be restricted until KYC is approved.
                 </p>
-                <div className="mt-3 flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => navigate('/farmer/kyc')}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5"
-                  >
-                    View / Complete KYC Application <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/farmer/kyc')}
+                  className="mt-2 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5 w-fit"
+                >
+                  Check KYC Status <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loadingKyc && kycStatus === 'Rejected' && (
+          <div className="mb-6 p-4 bg-red-50 border-2 border-red-300 rounded-2xl shadow-sm animate-fadeIn">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-sm font-bold text-red-900">KYC Rejected — Booking Blocked</h2>
+                <p className="text-xs text-red-800 mt-1">
+                  Your KYC was rejected. Reason: "{kycRemarks || 'Invalid details'}". Please re-submit your KYC.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/farmer/kyc')}
+                  className="mt-2 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5 w-fit"
+                >
+                  Re-submit KYC <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!loadingKyc && kycStatus === 'Not Started' && (
+          <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-200 rounded-2xl shadow-sm animate-fadeIn">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-bold text-blue-900">KYC Required to Confirm Slot Booking</p>
+                <p className="text-xs text-blue-800 mt-0.5">
+                  Complete Aadhaar e-KYC & Kisan ID verification to unlock slot booking and direct DBT payments.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigate('/farmer/kyc')}
+                  className="mt-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center gap-1.5 w-fit"
+                >
+                  Complete KYC Now <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           </div>
         )}
 
         {/* Main Card */}
-        <div className={`card p-5 sm:p-7 shadow-sm border border-gray-200 ${kycStatus !== 'Verified' ? 'opacity-60 pointer-events-none' : ''}`}>
+        <div className="card p-5 sm:p-7 shadow-sm border border-gray-200">
           {/* ────────────────────────────────────────────────────────── */}
           {/* STEP 0: CHOOSE MANDI / CENTRE                              */}
           {/* ────────────────────────────────────────────────────────── */}
@@ -986,16 +1033,28 @@ const BookSlotPage = () => {
                 Continue
               </Button>
             ) : (
-              <Button
-                type="button"
-                variant="primary"
-                loading={submitting}
-                onClick={handleConfirmBooking}
-                size="lg"
-                rightIcon={<CheckCircle className="w-4 h-4" />}
-              >
-                Confirm Booking
-              </Button>
+              <>
+                {kycStatus !== 'Verified' && (
+                  <div className="w-full mb-3 p-3 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                    <ShieldAlert className="w-4 h-4 flex-shrink-0 text-amber-600 mt-0.5" />
+                    <span>
+                      <strong>KYC approval required:</strong> Your slot booking confirmation is pending KYC verification by the District Officer.
+                      {' '}<button type="button" onClick={() => navigate('/farmer/kyc')} className="underline font-bold text-amber-800">Check KYC Status →</button>
+                    </span>
+                  </div>
+                )}
+                <Button
+                  type="button"
+                  variant="primary"
+                  loading={submitting}
+                  onClick={handleConfirmBooking}
+                  size="lg"
+                  rightIcon={<CheckCircle className="w-4 h-4" />}
+                  disabled={kycStatus === 'Rejected'}
+                >
+                  {kycStatus === 'Verified' ? 'Confirm Booking' : 'Submit Booking (Pending KYC)'}
+                </Button>
+              </>
             )}
           </div>
         </div>

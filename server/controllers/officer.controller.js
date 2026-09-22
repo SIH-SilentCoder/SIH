@@ -228,27 +228,30 @@ const updateKycApproval = async (req, res, next) => {
       district: profile.userId?.district,
     });
 
+    const targetUserId = profile.userId?._id || profile.userId;
+    const targetUserMobile = profile.userId?.mobile;
     const isApprove = action === 'approve';
     profile.kycStatus = isApprove ? 'Verified' : 'Rejected';
     profile.kycRemarks = remarks || (isApprove ? `Approved by ${req.user.role.toUpperCase()} Officer` : `Rejected by ${req.user.role.toUpperCase()} Officer`);
+    profile.userId = targetUserId;
     await profile.save();
 
     // Send Notification to farmer
-    if (profile.userId?._id) {
+    if (targetUserId) {
       if (isApprove) {
-        await notificationService.kycApproved(profile.userId._id, profile.kycRemarks);
+        await notificationService.kycApproved(targetUserId, profile.kycRemarks);
       } else {
-        await notificationService.kycRejected(profile.userId._id, profile.kycRemarks);
+        await notificationService.kycRejected(targetUserId, profile.kycRemarks);
       }
     }
 
     // Send real SMS
-    if (profile.userId?.mobile) {
+    if (targetUserMobile) {
       const smsMsg = isApprove
         ? `Kisan Portal: Your KYC has been APPROVED by ${req.user.role.toUpperCase()} Officer. You can now book procurement slots!`
         : `Kisan Portal: Your KYC was REJECTED by ${req.user.role.toUpperCase()} Officer. Remarks: ${profile.kycRemarks}. Please update details.`;
       try {
-        await smsService.sendSms(profile.userId.mobile, smsMsg);
+        await smsService.sendSms(targetUserMobile, smsMsg);
       } catch (sErr) {
         console.warn('[Officer Controller] SMS send failed:', sErr.message);
       }

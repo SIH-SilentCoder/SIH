@@ -103,7 +103,17 @@ function addSchemaFields(fields, schema) {
   }
 }
 
-const idValue = (value) => (value && value._id ? value._id : value);
+const idValue = (value) => {
+  if (!value) return value;
+  if (typeof value === 'object' && value._id) return value._id;
+  if (typeof value === 'string' && value.startsWith('{"_id"')) {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && parsed._id) return parsed._id;
+    } catch {}
+  }
+  return value;
+};
 const valuesEqual = (left, right) => String(idValue(left)) === String(idValue(right));
 
 function getPath(document, path) {
@@ -354,7 +364,21 @@ class PostgresModel {
     const db = getDb();
     if (db.isConnected && db.isConnected()) {
       const { rows } = await db.pool.query(`SELECT * FROM ${sqlIdentifier(this.tableName)}`);
-      return rows.map((row) => this._document(Object.fromEntries([...this.fields].map(([field]) => [field, row[field === '_id' ? 'id' : field]]))));
+      return rows.map((row) => {
+        // Auto-heal any legacy or corrupted stringified JSON references in non-JSONB fields
+        for (const [field, type] of this.fields) {
+          const col = field === '_id' ? 'id' : field;
+          if (type !== 'JSONB' && typeof row[col] === 'string' && row[col].startsWith('{"_id"')) {
+            try {
+              const parsed = JSON.parse(row[col]);
+              if (parsed && parsed._id) {
+                row[col] = parsed._id;
+              }
+            } catch (e) {}
+          }
+        }
+        return this._document(Object.fromEntries([...this.fields].map(([field]) => [field, row[field === '_id' ? 'id' : field]])));
+      });
     }
     const tableData = localDbData[this.tableName] || [];
     return tableData.map((doc) => this._document({ ...doc }));
@@ -369,8 +393,14 @@ class PostgresModel {
       const values = fields.map((_, index) => `$${index + 1}`).join(', ');
       const updates = fields.filter((field) => field !== '_id').map((field) => `${sqlIdentifier(field)} = EXCLUDED.${sqlIdentifier(field)}`).join(', ');
       const parameters = fields.map((field) => {
-        const value = data[field];
-        return this.fields.get(field) === 'JSONB' && value !== undefined ? JSON.stringify(value) : value;
+        let value = data[field];
+        // If field is not JSONB and is an object with _id (populated ref), extract _id
+        if (value && typeof value === 'object' && value._id && this.fields.get(field) !== 'JSONB') {
+          value = String(value._id);
+        }
+        return this.fields.get(field) === 'JSONB' && value !== undefined 
+          ? JSON.stringify(value) 
+          : (value === undefined ? null : value);
       });
       await db.pool.query(
         `INSERT INTO ${sqlIdentifier(this.tableName)} (${columns}) VALUES (${values}) ON CONFLICT ("id") DO UPDATE SET ${updates}`,
@@ -378,11 +408,17 @@ class PostgresModel {
       );
     } else {
       if (!localDbData[this.tableName]) localDbData[this.tableName] = [];
-      const idx = localDbData[this.tableName].findIndex((item) => String(item._id) === String(data._id));
+      const cleanData = { ...data };
+      for (const [field, type] of this.fields) {
+        if (type !== 'JSONB' && cleanData[field] && typeof cleanData[field] === 'object' && cleanData[field]._id) {
+          cleanData[field] = String(cleanData[field]._id);
+        }
+      }
+      const idx = localDbData[this.tableName].findIndex((item) => String(item._id) === String(cleanData._id));
       if (idx >= 0) {
-        localDbData[this.tableName][idx] = data;
+        localDbData[this.tableName][idx] = cleanData;
       } else {
-        localDbData[this.tableName].push(data);
+        localDbData[this.tableName].push(cleanData);
       }
       saveLocalDb();
     }
