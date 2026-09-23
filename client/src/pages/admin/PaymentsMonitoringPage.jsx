@@ -5,6 +5,7 @@ import {
   Download, Search, Filter, Landmark, FileText, ArrowUpRight
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
+import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/constants';
 
 const PAYMENT_BATCHES = [
@@ -66,12 +67,22 @@ const PAYMENT_BATCHES = [
 ];
 
 const PaymentsMonitoringPage = () => {
+  const { user } = useAuth();
+  const isStateOfficer = user?.role === 'state_officer';
+  const isDistrictOfficer = user?.role === 'district_officer';
+
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedState, setSelectedState] = useState('All');
 
   const filteredBatches = PAYMENT_BATCHES.filter((b) => {
+    // Strict Jurisdictional Isolation
+    if (isStateOfficer && user?.state && b.state?.toLowerCase() !== user.state.toLowerCase()) return false;
+    if (isDistrictOfficer) {
+      if (user?.district && b.district?.toLowerCase() !== user.district.toLowerCase()) return false;
+      if (user?.state && b.state?.toLowerCase() !== user.state.toLowerCase()) return false;
+    }
     if (selectedState !== 'All' && b.state !== selectedState) return false;
     if (currentTab === 'pending' && b.status === 'Completed') return false;
     if (currentTab === 'completed' && b.status !== 'Completed') return false;

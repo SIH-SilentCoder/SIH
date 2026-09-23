@@ -152,13 +152,15 @@ const CentreManagementPage = () => {
           <h1 className="page-title">Procurement Centres</h1>
           <p className="page-subtitle">Manage procurement centres in your jurisdiction</p>
         </div>
-        <Button variant="primary" onClick={() => { resetForm(); setShowForm(true); }} leftIcon={<Plus className="w-4 h-4" />}>
-          Add Centre
-        </Button>
+        {user?.role === 'state_officer' && (
+          <Button variant="primary" onClick={() => { resetForm(); setShowForm(true); }} leftIcon={<Plus className="w-4 h-4" />}>
+            Add Centre
+          </Button>
+        )}
       </div>
 
       {/* Form */}
-      {showForm && (
+      {showForm && user?.role === 'state_officer' && (
         <div className="card p-6 mb-6">
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">

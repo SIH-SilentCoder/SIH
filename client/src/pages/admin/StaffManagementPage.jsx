@@ -150,11 +150,11 @@ const StaffManagementPage = () => {
           </div>
         </div>
 
-        {/* Tabs */}
+      {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6">
         {[
           { id: 'subordinates', label: 'My Subordinates', icon: Users },
-          { id: 'create', label: 'Create Account', icon: UserPlus },
+          ...(user?.role === 'state_officer' ? [{ id: 'create', label: 'Create Account', icon: UserPlus }] : []),
           { id: 'hierarchy', label: 'Hierarchy Tree', icon: Shield },
         ].map(({ id, label, icon: Icon }) => (
           <button
@@ -251,7 +251,7 @@ const StaffManagementPage = () => {
       )}
 
       {/* ── TAB: Create Account ── */}
-      {tab === 'create' && (
+      {tab === 'create' && user?.role === 'state_officer' && (
         <div className="max-w-lg mx-auto">
           {creatableRoles.length === 0 ? (
             <div className="text-center py-16 bg-gray-50 rounded-2xl border border-gray-200">

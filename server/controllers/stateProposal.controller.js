@@ -74,9 +74,11 @@ const getProposals = async (req, res, next) => {
 
     const filter = {};
 
-    // State restriction if user is State Officer
-    if (user.role === ROLES.STATE_OFFICER) {
-      filter.state = new RegExp(`^${user.state}$`, 'i');
+    // State restriction if user is State Officer or District Officer
+    if (user.role === ROLES.STATE_OFFICER || user.role === ROLES.DISTRICT_OFFICER) {
+      if (user.state) {
+        filter.state = new RegExp(`^${user.state}$`, 'i');
+      }
     } else if (state) {
       filter.state = new RegExp(`^${state}$`, 'i');
     }
@@ -260,10 +262,16 @@ const approveProposal = async (req, res, next) => {
         });
       }
     } else if (proposal.category === 'add_officer_staff') {
+      const targetState = proposal.state || payload.state;
+      const targetDistrict = payload.district;
+
       if (payload.userId) {
         executedRecord = await User.findById(payload.userId);
         if (executedRecord) {
           executedRecord.isActive = true;
+          if (targetDistrict) executedRecord.district = targetDistrict;
+          if (targetState) executedRecord.state = targetState;
+          if (payload.centreId) executedRecord.centreId = payload.centreId;
           await executedRecord.save();
         }
       }
@@ -271,6 +279,9 @@ const approveProposal = async (req, res, next) => {
         executedRecord = await User.findOne({ mobile: payload.mobile });
         if (executedRecord) {
           executedRecord.isActive = true;
+          if (targetDistrict) executedRecord.district = targetDistrict;
+          if (targetState) executedRecord.state = targetState;
+          if (payload.centreId) executedRecord.centreId = payload.centreId;
           await executedRecord.save();
         }
       }
@@ -278,7 +289,7 @@ const approveProposal = async (req, res, next) => {
       if (!executedRecord) {
         const role = payload.role || ROLES.DISTRICT_OFFICER;
         const count = await User.countDocuments({ role });
-        const empId = payload.employeeId || generateEmployeeId(role, payload.districtCode || proposal.state.slice(0, 2).toUpperCase(), count + 1);
+        const empId = payload.employeeId || generateEmployeeId(role, payload.districtCode || targetState.slice(0, 2).toUpperCase(), count + 1);
 
         executedRecord = await User.create({
           name: payload.name,
@@ -287,8 +298,8 @@ const approveProposal = async (req, res, next) => {
           password: payload.password || 'Kisan@123',
           role,
           level: role === ROLES.DISTRICT_OFFICER ? 3 : 5,
-          state: proposal.state,
-          district: payload.district,
+          state: targetState,
+          district: targetDistrict,
           centreId: payload.centreId || null,
           department: payload.department || proposal.department,
           departmentRole: payload.departmentRole || 'Officer',
@@ -298,19 +309,43 @@ const approveProposal = async (req, res, next) => {
         });
       }
 
-      // Ensure OfficerProfile exists
+      // Hierarchy link: If appointed officer is subordinate to District Officer (e.g. Centre Head, PO, QWS, GVS)
+      // link their parentId to the active District Nodal Officer of this district if available
+      if (executedRecord.role !== ROLES.DISTRICT_OFFICER && targetDistrict) {
+        const dno = await User.findOne({
+          role: ROLES.DISTRICT_OFFICER,
+          district: new RegExp(`^${targetDistrict}$`, 'i'),
+          state: new RegExp(`^${targetState}$`, 'i'),
+          isActive: true,
+        });
+        if (dno && (!executedRecord.parentId || executedRecord.parentId.toString() === proposal.proposedBy?.toString())) {
+          executedRecord.parentId = dno._id;
+          await executedRecord.save();
+        }
+      }
+
+      // Ensure OfficerProfile exists and is strictly updated with district and state
       let profile = await OfficerProfile.findOne({ userId: executedRecord._id });
       if (!profile) {
         profile = await OfficerProfile.create({
           userId: executedRecord._id,
-          centreId: payload.centreId || null,
+          centreId: payload.centreId || executedRecord.centreId || null,
           employeeId: executedRecord.employeeId,
           designation: payload.designation || payload.departmentRole || 'Officer',
+          state: targetState,
+          district: targetDistrict,
         });
+      } else {
+        profile.state = targetState;
+        profile.district = targetDistrict;
+        if (payload.centreId || executedRecord.centreId) {
+          profile.centreId = payload.centreId || executedRecord.centreId;
+        }
+        await profile.save();
       }
 
-      if (payload.centreId) {
-        await ProcurementCentre.findByIdAndUpdate(payload.centreId, {
+      if (payload.centreId || executedRecord.centreId) {
+        await ProcurementCentre.findByIdAndUpdate(payload.centreId || executedRecord.centreId, {
           $addToSet: { officerIds: executedRecord._id },
         });
       }
@@ -350,6 +385,8 @@ const approveProposal = async (req, res, next) => {
         userId: executedRecord._id,
         employeeId: empId,
         designation: 'District Nodal Officer',
+        state: proposal.state,
+        district: payload.districtName,
       });
     }
 

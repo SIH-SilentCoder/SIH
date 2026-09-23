@@ -102,7 +102,7 @@ const getNavSections = (user) => {
           label: isStateOfficer ? `${user?.state || 'State'} Officers & Appointments` : 'Officers & Administration',
           subItems: [
             { to: '/admin/staff?tab=subordinates', label: 'Officer Directory' },
-            { to: '/admin/staff?tab=create', label: 'Officer Appointments' },
+            ...(isStateOfficer ? [{ to: '/admin/staff?tab=create', label: 'Officer Appointments' }] : []),
             { to: '/admin/staff?tab=hierarchy', label: 'Hierarchy Tree' },
           ],
         },

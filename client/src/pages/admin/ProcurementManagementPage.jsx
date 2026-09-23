@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
 import { adminService, centreService, cropService } from '../../services';
+import { useAuth } from '../../context/AuthContext';
 import { formatCurrency, extractError } from '../../utils/constants';
 
 const CONSOLIDATED_RECORDS = [
@@ -93,6 +94,10 @@ const CONSOLIDATED_RECORDS = [
 ];
 
 const ProcurementManagementPage = () => {
+  const { user } = useAuth();
+  const isStateOfficer = user?.role === 'state_officer';
+  const isDistrictOfficer = user?.role === 'district_officer';
+
   const [searchParams, setSearchParams] = useSearchParams();
   const currentTab = searchParams.get('tab') || 'overview';
 
@@ -104,6 +109,12 @@ const ProcurementManagementPage = () => {
   const [loading, setLoading] = useState(false);
 
   const filteredRecords = CONSOLIDATED_RECORDS.filter((rec) => {
+    // Strict Jurisdictional Isolation
+    if (isStateOfficer && user?.state && rec.state?.toLowerCase() !== user.state.toLowerCase()) return false;
+    if (isDistrictOfficer) {
+      if (user?.district && rec.district?.toLowerCase() !== user.district.toLowerCase()) return false;
+      if (user?.state && rec.state?.toLowerCase() !== user.state.toLowerCase()) return false;
+    }
     if (selectedState !== 'All' && rec.state !== selectedState) return false;
     if (selectedCrop !== 'All' && !rec.crop.includes(selectedCrop)) return false;
     if (selectedStatus !== 'All' && rec.paymentStatus !== selectedStatus) return false;

@@ -42,6 +42,9 @@ const createSubordinate = async (req, res, next) => {
     const { name, mobile, email, targetRole, state, district, centreId } = req.body;
 
     // ── Validate hierarchy ─────────────────────────────
+    if (creator.role === ROLES.DISTRICT_OFFICER) {
+      throw new ApiError(403, 'District Officers are not authorized to create officer accounts. Officer appointments must be proposed by State Officers.');
+    }
     if (!targetRole) {
       throw new ApiError(400, 'Target role is required.');
     }
@@ -135,6 +138,8 @@ const createSubordinate = async (req, res, next) => {
         centreId: userCentreId || null,
         employeeId,
         designation: ROLE_LABELS[targetRole],
+        state: userState,
+        district: userDistrict,
       });
 
       // Add to centre's officerIds if active
@@ -210,8 +215,32 @@ const getSubordinates = async (req, res, next) => {
   try {
     const { page = 1, limit = 50, search } = req.query;
 
-    const allUsers = await User.find({ parentId: req.user._id })
-      .sort({ createdAt: -1 });
+    let query = { parentId: req.user._id };
+
+    if (req.user.role === ROLES.DISTRICT_OFFICER && req.user.district) {
+      query = {
+        $or: [
+          { parentId: req.user._id },
+          {
+            district: new RegExp(`^${req.user.district}$`, 'i'),
+            role: { $in: [ROLES.CENTRE_HEAD, ROLES.PROCUREMENT_OFFICER, ROLES.QUALITY_STAFF, ROLES.DATA_STAFF, ROLES.GATE_STAFF] },
+            ...(req.user.state ? { state: new RegExp(`^${req.user.state}$`, 'i') } : {}),
+          },
+        ],
+      };
+    } else if (req.user.role === ROLES.STATE_OFFICER && req.user.state) {
+      query = {
+        $or: [
+          { parentId: req.user._id },
+          {
+            state: new RegExp(`^${req.user.state}$`, 'i'),
+            role: { $in: [ROLES.DISTRICT_OFFICER, ROLES.CENTRE_HEAD, ROLES.PROCUREMENT_OFFICER, ROLES.QUALITY_STAFF, ROLES.DATA_STAFF, ROLES.GATE_STAFF] },
+          },
+        ],
+      };
+    }
+
+    const allUsers = await User.find(query).sort({ createdAt: -1 });
 
     let subordinates = allUsers;
 

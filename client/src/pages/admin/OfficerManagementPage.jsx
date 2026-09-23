@@ -153,7 +153,7 @@ const OfficerManagementPage = () => {
             Appoint and manage officers under your jurisdiction
           </p>
         </div>
-        {appointableRoles.length > 0 && (
+        {user?.role === 'state_officer' && appointableRoles.length > 0 && (
           <Button
             variant="primary"
             onClick={() => setShowForm(!showForm)}
@@ -190,7 +190,7 @@ const OfficerManagementPage = () => {
       )}
 
       {/* Appoint Form */}
-      {showForm && (
+      {showForm && user?.role === 'state_officer' && (
         <div className="card p-5 mb-6">
           <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <UserPlus className="w-4 h-4 text-primary-500" />

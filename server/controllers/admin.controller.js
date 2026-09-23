@@ -24,21 +24,41 @@ const getAdminDashboard = async (req, res, next) => {
     const dayEnd = endOfDay(today);
 
     const isStateOfficer = req.user.role === ROLES.STATE_OFFICER;
-    const stateRegex = isStateOfficer && req.user.state ? new RegExp(`^${req.user.state}$`, 'i') : null;
+    const isDistrictOfficer = req.user.role === ROLES.DISTRICT_OFFICER;
 
-    const userStateFilter = stateRegex ? { state: stateRegex } : {};
-    const centreStateFilter = stateRegex ? { state: stateRegex, isActive: true } : { isActive: true };
+    const stateRegex = (isStateOfficer || isDistrictOfficer) && req.user.state ? new RegExp(`^${req.user.state}$`, 'i') : null;
+    const districtRegex = isDistrictOfficer && req.user.district ? new RegExp(`^${req.user.district}$`, 'i') : null;
 
-    let stateCentres = [];
-    let stateCentreIds = [];
-    if (stateRegex) {
-      stateCentres = await ProcurementCentre.find({ state: stateRegex });
-      stateCentreIds = stateCentres.map((c) => c._id);
+    let userFilter = {};
+    let centreFilter = { isActive: true };
+
+    if (isStateOfficer) {
+      if (stateRegex) {
+        userFilter.state = stateRegex;
+        centreFilter.state = stateRegex;
+      }
+    } else if (isDistrictOfficer) {
+      if (districtRegex) {
+        userFilter.district = districtRegex;
+        centreFilter.district = districtRegex;
+      }
+      if (stateRegex) {
+        userFilter.state = stateRegex;
+        centreFilter.state = stateRegex;
+      }
     }
 
-    const bookingScope = stateCentreIds.length > 0
-      ? { centreId: { $in: stateCentreIds } }
-      : (stateRegex ? { centreId: '__none__' } : {});
+    let jurisdictionCentres = [];
+    let jurisdictionCentreIds = [];
+    if (isStateOfficer || isDistrictOfficer) {
+      jurisdictionCentres = await ProcurementCentre.find(centreFilter);
+      jurisdictionCentreIds = jurisdictionCentres.map((c) => c._id);
+    }
+
+    const isJurisdictionScoped = isStateOfficer || isDistrictOfficer;
+    const bookingScope = isJurisdictionScoped
+      ? (jurisdictionCentreIds.length > 0 ? { centreId: { $in: jurisdictionCentreIds } } : { centreId: '__none__' })
+      : {};
 
     const [
       totalFarmers,
@@ -48,21 +68,34 @@ const getAdminDashboard = async (req, res, next) => {
       todayBookings,
       completedProcurements,
       pendingProcurements,
-      totalPaymentsPaid,
-      totalPaymentsPending,
       cancelledBookings,
     ] = await Promise.all([
-      User.countDocuments({ role: ROLES.FARMER, isActive: true, ...userStateFilter }),
-      User.countDocuments({ role: { $in: OFFICER_ROLES }, isActive: true, ...userStateFilter }),
-      ProcurementCentre.countDocuments(centreStateFilter),
+      User.countDocuments({ role: ROLES.FARMER, isActive: true, ...userFilter }),
+      User.countDocuments({ role: { $in: OFFICER_ROLES }, isActive: true, ...userFilter }),
+      ProcurementCentre.countDocuments(centreFilter),
       Booking.countDocuments(bookingScope),
       Booking.countDocuments({ createdAt: { $gte: dayStart, $lte: dayEnd }, ...bookingScope }),
-      Procurement.countDocuments({ status: 'completed', ...(stateCentreIds.length > 0 ? { centreId: { $in: stateCentreIds } } : {}) }),
-      Procurement.countDocuments({ status: 'pending', ...(stateCentreIds.length > 0 ? { centreId: { $in: stateCentreIds } } : {}) }),
-      Payment.countDocuments({ status: 'paid' }),
-      Payment.countDocuments({ status: 'pending' }),
+      Procurement.countDocuments({ status: 'completed', ...(jurisdictionCentreIds.length > 0 ? { centreId: { $in: jurisdictionCentreIds } } : (isJurisdictionScoped ? { centreId: '__none__' } : {})) }),
+      Procurement.countDocuments({ status: 'pending', ...(jurisdictionCentreIds.length > 0 ? { centreId: { $in: jurisdictionCentreIds } } : (isJurisdictionScoped ? { centreId: '__none__' } : {})) }),
       Booking.countDocuments({ status: 'cancelled', ...bookingScope }),
     ]);
+
+    // Jurisdiction-scoped payments
+    let totalPaymentsPaid = 0;
+    let totalPaymentsPending = 0;
+    if (isJurisdictionScoped) {
+      if (jurisdictionCentreIds.length > 0) {
+        const centreBookings = await Booking.find({ centreId: { $in: jurisdictionCentreIds } });
+        const bookingIds = centreBookings.map((b) => b._id);
+        if (bookingIds.length > 0) {
+          totalPaymentsPaid = await Payment.countDocuments({ status: 'paid', bookingId: { $in: bookingIds } });
+          totalPaymentsPending = await Payment.countDocuments({ status: 'pending', bookingId: { $in: bookingIds } });
+        }
+      }
+    } else {
+      totalPaymentsPaid = await Payment.countDocuments({ status: 'paid' });
+      totalPaymentsPending = await Payment.countDocuments({ status: 'pending' });
+    }
 
     // Total procurement value
     const procMatch = { status: 'completed' };
@@ -149,14 +182,20 @@ const getFarmers = async (req, res, next) => {
     const filter = { role: ROLES.FARMER };
     if (isActive !== undefined) filter.isActive = isActive === 'true';
 
-    // State restriction if user is State Officer
+    // State and District restriction
     if (req.user.role === ROLES.STATE_OFFICER && req.user.state) {
       filter.state = new RegExp(`^${req.user.state}$`, 'i');
-    } else if (req.user.role === ROLES.DISTRICT_OFFICER && req.user.district) {
-      filter.district = new RegExp(`^${req.user.district}$`, 'i');
-    }
-
-    if (district) {
+      if (district) {
+        filter.district = new RegExp(`^${district}$`, 'i');
+      }
+    } else if (req.user.role === ROLES.DISTRICT_OFFICER) {
+      if (req.user.district) {
+        filter.district = new RegExp(`^${req.user.district}$`, 'i');
+      }
+      if (req.user.state) {
+        filter.state = new RegExp(`^${req.user.state}$`, 'i');
+      }
+    } else if (district) {
       filter.district = new RegExp(`^${district}$`, 'i');
     }
 
@@ -205,7 +244,21 @@ const getAllBookings = async (req, res, next) => {
         }
         filter.centreId = centreId;
       } else {
-        filter.centreId = { $in: stateCentreIds };
+        filter.centreId = stateCentreIds.length > 0 ? { $in: stateCentreIds } : '__none__';
+      }
+    } else if (req.user.role === ROLES.DISTRICT_OFFICER) {
+      const distCentres = await ProcurementCentre.find({
+        ...(req.user.district ? { district: new RegExp(`^${req.user.district}$`, 'i') } : {}),
+        ...(req.user.state ? { state: new RegExp(`^${req.user.state}$`, 'i') } : {}),
+      });
+      const distCentreIds = distCentres.map((c) => c._id);
+      if (centreId) {
+        if (!distCentreIds.some((id) => String(id) === String(centreId))) {
+          return res.json(new ApiResponse(200, { bookings: [], pagination: { page: Number(page), limit: Number(limit), total: 0 } }));
+        }
+        filter.centreId = centreId;
+      } else {
+        filter.centreId = distCentreIds.length > 0 ? { $in: distCentreIds } : '__none__';
       }
     } else if (centreId) {
       filter.centreId = centreId;
@@ -275,6 +328,11 @@ const appointOfficer = async (req, res, next) => {
 
     if (!name || !mobile || !role) {
       throw new ApiError(400, 'Name, mobile, and role are required.');
+    }
+
+    // District Officers are not permitted to appoint officers
+    if (creator.role === ROLES.DISTRICT_OFFICER) {
+      throw new ApiError(403, 'District Officers are not authorized to appoint officers. Officer appointments must be proposed by State Officers.');
     }
 
     // Validate that creator can create this role
@@ -429,8 +487,12 @@ const registerFarmerByOfficer = async (req, res, next) => {
     const existing = await User.findOne({ mobile });
     if (existing) throw new ApiError(409, 'A user with this mobile number already exists.');
 
-    const farmerState = state || officer.state || '';
-    const farmerDistrict = district || officer.district || '';
+    const farmerState = (officer.role === ROLES.STATE_OFFICER || officer.role === ROLES.DISTRICT_OFFICER)
+      ? officer.state
+      : (state || officer.state || '');
+    const farmerDistrict = (officer.role === ROLES.DISTRICT_OFFICER)
+      ? officer.district
+      : (district || officer.district || '');
 
     // Create user account
     const user = await User.create({
@@ -473,11 +535,27 @@ const getOfficers = async (req, res, next) => {
   try {
     const officerFilter = { role: { $in: OFFICER_ROLES } };
 
-    // State restriction if user is State Officer
+    // State and District restriction
     if (req.user.role === ROLES.STATE_OFFICER && req.user.state) {
       officerFilter.state = new RegExp(`^${req.user.state}$`, 'i');
-    } else if (req.user.role === ROLES.DISTRICT_OFFICER && req.user.district) {
-      officerFilter.district = new RegExp(`^${req.user.district}$`, 'i');
+    } else if (req.user.role === ROLES.DISTRICT_OFFICER) {
+      const userDist = req.user.district;
+      const userState = req.user.state;
+      if (userState) {
+        officerFilter.state = new RegExp(`^${userState}$`, 'i');
+      }
+      if (userDist) {
+        const districtCentres = await ProcurementCentre.find({
+          district: new RegExp(`^${userDist}$`, 'i'),
+          ...(userState ? { state: new RegExp(`^${userState}$`, 'i') } : {})
+        });
+        const distCentreIds = districtCentres.map((c) => c._id);
+
+        officerFilter.$or = [
+          { district: new RegExp(`^${userDist}$`, 'i') },
+          ...(distCentreIds.length > 0 ? [{ centreId: { $in: distCentreIds } }] : [])
+        ];
+      }
     }
 
     const officers = await User.find(officerFilter).sort({ createdAt: -1 });
@@ -501,6 +579,11 @@ const createCentre = async (req, res, next) => {
   try {
     const officer = req.user;
     const body = { ...req.body };
+
+    // District Officers and Central Admins are not permitted to add centres directly
+    if (officer.role === ROLES.DISTRICT_OFFICER) {
+      throw new ApiError(403, 'District Officers are not authorized to create procurement centres.');
+    }
 
     // Auto-fill district/state from officer profile if not provided
     if (!body.district && officer.district) body.district = officer.district;

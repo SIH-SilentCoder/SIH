@@ -85,7 +85,9 @@ const RECENT_ADMIN_ACTIVITIES = [
 const AdminDashboard = () => {
   const { user } = useAuth();
   const isStateOfficer = user?.role === 'state_officer';
+  const isDistrictOfficer = user?.role === 'district_officer';
   const userState = user?.state || 'Punjab';
+  const userDistrict = user?.district || 'District';
 
   const [data, setData] = useState(null);
   const [centres, setCentres] = useState([]);
@@ -120,12 +122,17 @@ const AdminDashboard = () => {
   const bookingTrend = data?.bookingTrend || [];
   const cropStats = data?.cropStats || [];
 
-  // Compute total metrics
+  // Compute total metrics without national hardcoding leaking into states/districts
   const totalStates = 5;
-  const totalCentresCount = Math.max(summary.totalCentres || 0, centres.length || 0, 82);
-  const totalFarmersCount = Math.max(summary.totalFarmers || 0, 31220);
-  const totalProcuredMT = summary.completedProcurements ? summary.completedProcurements * 35 : 132900;
-  const totalDisbursedValue = summary.totalProcurementValue || 302330000;
+  const isJurisdictionScoped = isStateOfficer || isDistrictOfficer;
+  const totalCentresCount = isJurisdictionScoped
+    ? (summary.totalCentres !== undefined ? summary.totalCentres : (centres.length || 0))
+    : Math.max(summary.totalCentres || 0, centres.length || 0, 82);
+  const totalFarmersCount = isJurisdictionScoped
+    ? (summary.totalFarmers || 0)
+    : Math.max(summary.totalFarmers || 0, 31220);
+  const totalProcuredMT = summary.completedProcurements ? summary.completedProcurements * 35 : (isJurisdictionScoped ? 0 : 132900);
+  const totalDisbursedValue = summary.totalProcurementValue || (isJurisdictionScoped ? 0 : 302330000);
   const pendingApprovalsCount = 3;
 
   return (
@@ -135,22 +142,24 @@ const AdminDashboard = () => {
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              <span>{isStateOfficer ? `${userState} State Portal` : 'National Portal'}</span>
+              <span>{isDistrictOfficer ? `${userState} State / ${userDistrict} District` : (isStateOfficer ? `${userState} State Portal` : 'National Portal')}</span>
               <span>/</span>
               <span className="text-blue-700 font-bold">
-                {isStateOfficer ? `${userState} State Nodal Dashboard` : 'Central CPO Dashboard'}
+                {isDistrictOfficer ? `${userDistrict} District Nodal Dashboard` : (isStateOfficer ? `${userState} State Nodal Dashboard` : 'Central CPO Dashboard')}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1 flex items-center gap-2">
-              <span>{isStateOfficer ? `${userState} Foodgrain Procurement Command` : 'National Foodgrain Procurement Command'}</span>
+              <span>{isDistrictOfficer ? `${userDistrict} Foodgrain Procurement Command` : (isStateOfficer ? `${userState} Foodgrain Procurement Command` : 'National Foodgrain Procurement Command')}</span>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
                 2026 Season Active
               </span>
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              {isStateOfficer
-                ? `Real-time mandi surveillance, crop intake, and Direct Benefit Transfer monitoring for ${userState}.`
-                : 'Consolidated procurement surveillance, state quotas, MSP compliance, and Direct Benefit Transfer monitoring.'}
+              {isDistrictOfficer
+                ? `Real-time mandi surveillance, farmer intake, and local token monitoring for ${userDistrict}, ${userState}.`
+                : (isStateOfficer
+                    ? `Real-time mandi surveillance, crop intake, and Direct Benefit Transfer monitoring for ${userState}.`
+                    : 'Consolidated procurement surveillance, state quotas, MSP compliance, and Direct Benefit Transfer monitoring.')}
             </p>
           </div>
 
@@ -185,17 +194,17 @@ const AdminDashboard = () => {
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-300 transition">
             <div className="flex items-center justify-between text-slate-500 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                {isStateOfficer ? 'Assigned State' : 'States Covered'}
+                {isDistrictOfficer ? 'Assigned District' : (isStateOfficer ? 'Assigned State' : 'States Covered')}
               </span>
               <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
                 <Landmark className="w-3.5 h-3.5" />
               </div>
             </div>
             <p className="text-2xl font-black text-slate-900 truncate">
-              {isStateOfficer ? userState : totalStates}
+              {isDistrictOfficer ? userDistrict : (isStateOfficer ? userState : totalStates)}
             </p>
             <p className="text-[10px] text-emerald-700 font-semibold mt-0.5">
-              {isStateOfficer ? 'State Jurisdiction Active' : 'Active Procurement Zones'}
+              {isDistrictOfficer ? `${userState} Jurisdiction` : (isStateOfficer ? 'State Jurisdiction Active' : 'Active Procurement Zones')}
             </p>
           </div>
 

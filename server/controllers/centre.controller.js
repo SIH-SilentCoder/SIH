@@ -13,6 +13,14 @@ const getCentres = async (req, res, next) => {
     if (district) filter.district = { $regex: district, $options: 'i' };
     if (state) filter.state = { $regex: state, $options: 'i' };
 
+    // If State Officer or District Officer, strictly constrain centres
+    if (req.user && req.user.role === 'state_officer' && req.user.state) {
+      filter.state = { $regex: `^${req.user.state}$`, $options: 'i' };
+    } else if (req.user && req.user.role === 'district_officer') {
+      if (req.user.district) filter.district = { $regex: `^${req.user.district}$`, $options: 'i' };
+      if (req.user.state) filter.state = { $regex: `^${req.user.state}$`, $options: 'i' };
+    }
+
     // If farmer, prioritize centres in their district + any open centres
     if (req.user && req.user.role === 'farmer') {
       const profile = await FarmerProfile.findOne({ userId: req.user._id });
@@ -31,8 +39,8 @@ const getCentres = async (req, res, next) => {
       .limit(Number(limit))
       .sort({ name: 1 });
 
-    // Fallback: If district filter produced 0 centres, fetch all active centres so farmer can still select a mandi
-    if (!centres || centres.length === 0) {
+    // Fallback: ONLY for farmers if district filter produced 0 centres so they can still select a mandi
+    if ((!centres || centres.length === 0) && (!req.user || req.user.role === 'farmer')) {
       centres = await ProcurementCentre.find({ isActive: true })
         .populate('availableCrops', 'name mspPrice unit season')
         .skip((page - 1) * limit)

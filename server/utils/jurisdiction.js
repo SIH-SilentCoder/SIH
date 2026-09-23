@@ -42,7 +42,11 @@ function getJurisdictionFilter(user) {
     if (!user.district) {
       throw new ApiError(400, 'Officer does not have an assigned district scope.');
     }
-    return { district: new RegExp(`^${user.district}$`, 'i') };
+    const filter = { district: new RegExp(`^${user.district}$`, 'i') };
+    if (user.state) {
+      filter.state = new RegExp(`^${user.state}$`, 'i');
+    }
+    return filter;
   }
 
   // Level 4-6: Mandi / Centre Head & Officers — Procurement Centre restriction
@@ -154,20 +158,22 @@ function filterByJurisdiction(user, items = [], getLocation = (item) => item) {
 
     if (level === 2 || user.role === ROLES.STATE_OFFICER) {
       if (!user.state) return true;
-      return itemState ? norm(itemState) === norm(user.state) : true;
+      return Boolean(itemState && norm(itemState) === norm(user.state));
     }
 
     if (level === 3 || user.role === ROLES.DISTRICT_OFFICER) {
       if (!user.district) return true;
-      return itemDistrict ? norm(itemDistrict) === norm(user.district) : true;
+      const districtMatch = Boolean(itemDistrict && norm(itemDistrict) === norm(user.district));
+      const stateMatch = user.state && itemState ? norm(itemState) === norm(user.state) : true;
+      return districtMatch && stateMatch;
     }
 
     if (level >= 4) {
-      if (user.centreId && itemCentreId) {
-        return String(itemCentreId) === String(user.centreId);
+      if (user.centreId) {
+        return itemCentreId ? String(itemCentreId) === String(user.centreId) : false;
       }
-      if (user.district && itemDistrict) {
-        return norm(itemDistrict) === norm(user.district);
+      if (user.district) {
+        return itemDistrict ? norm(itemDistrict) === norm(user.district) : false;
       }
     }
 
