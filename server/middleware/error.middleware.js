@@ -2,9 +2,13 @@ const ApiError = require('../utils/ApiError');
 
 // Global error handler — ensures CORS headers are always sent on error responses
 const errorHandler = (err, req, res, next) => {
+  if (res.headersSent) {
+    return next(err);
+  }
+
   let error = err;
 
-  if (err.code === '23505') error = new ApiError(409, 'The value is already registered.');
+  if (err.code === '23505' || err.code === 11000) error = new ApiError(409, 'The value is already registered.');
 
   if (err.name === 'ValidationError') {
     const messages = Object.values(err.errors).map((e) => ({

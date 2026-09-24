@@ -65,6 +65,11 @@ const associationMap = {
   farmerIdNumber: 'User',
   officerIds: 'User',
   availableCrops: 'Crop',
+  proposedBy: 'User',
+  appliedBy: 'User',
+  parentId: 'User',
+  senderId: 'User',
+  verifiedBy: 'User',
 };
 
 const sqlIdentifier = (value) => `"${value.replace(/"/g, '""')}"`;
@@ -531,6 +536,89 @@ class PostgresModel {
     let rows = await this._all();
     for (const stage of pipeline) {
       if (stage.$match) rows = rows.filter((row) => matches(row, stage.$match));
+      if (stage.$lookup) {
+        const { from, localField, foreignField, as } = stage.$lookup;
+        let targetModel = null;
+        for (const model of registry.values()) {
+          if (
+            model.tableName.toLowerCase() === from.toLowerCase() ||
+            model.name.toLowerCase() === from.toLowerCase() ||
+            `${model.name.toLowerCase()}s` === from.toLowerCase()
+          ) {
+            targetModel = model;
+            break;
+          }
+        }
+        if (targetModel) {
+          const targetRows = await targetModel._all();
+          rows = rows.map((row) => {
+            const localVal = getPath(row, localField);
+            const matchesJoined = targetRows.filter((tRow) => valuesEqual(getPath(tRow, foreignField), localVal));
+            const copy = row instanceof Document ? row.toObject() : { ...row };
+            setPath(copy, as, matchesJoined);
+            return copy;
+          });
+        }
+      }
+      if (stage.$group) {
+        const groups = new Map();
+        const idExpr = stage.$group._id;
+        for (const row of rows) {
+          let groupId;
+          if (idExpr === null) {
+            groupId = null;
+          } else if (typeof idExpr === 'string' && idExpr.startsWith('$')) {
+            groupId = getPath(row, idExpr.slice(1));
+          } else if (typeof idExpr === 'object' && idExpr.$dateToString) {
+            const dateVal = getPath(row, idExpr.$dateToString.date.replace(/^\$/, ''));
+            groupId = dateVal ? new Date(dateVal).toISOString().slice(0, 10) : null;
+          } else {
+            groupId = idExpr;
+          }
+          const groupKey = String(groupId);
+          if (!groups.has(groupKey)) {
+            groups.set(groupKey, { _id: groupId, _items: [] });
+          }
+          groups.get(groupKey)._items.push(row);
+        }
+
+        const aggregated = [];
+        for (const { _id, _items } of groups.values()) {
+          const groupDoc = { _id };
+          for (const [field, acc] of Object.entries(stage.$group)) {
+            if (field === '_id') continue;
+            if (acc && acc.$sum !== undefined) {
+              if (acc.$sum === 1) {
+                groupDoc[field] = _items.length;
+              } else if (typeof acc.$sum === 'string' && acc.$sum.startsWith('$')) {
+                const sumField = acc.$sum.slice(1);
+                groupDoc[field] = _items.reduce((s, it) => s + (Number(getPath(it, sumField)) || 0), 0);
+              } else if (typeof acc.$sum === 'number') {
+                groupDoc[field] = _items.length * acc.$sum;
+              } else if (typeof acc.$sum === 'object' && acc.$sum.$cond) {
+                const cond = acc.$sum.$cond;
+                const [check, trueVal, falseVal] = Array.isArray(cond) ? cond : [cond.if, cond.then, cond.else];
+                const count = _items.reduce((s, it) => {
+                  let pass = false;
+                  if (check && check.$eq) {
+                    const [leftExpr, rightVal] = check.$eq;
+                    const val = leftExpr.startsWith('$') ? getPath(it, leftExpr.slice(1)) : leftExpr;
+                    pass = valuesEqual(val, rightVal);
+                  }
+                  return s + (pass ? (Number(trueVal) || 0) : (Number(falseVal) || 0));
+                }, 0);
+                groupDoc[field] = count;
+              }
+            } else if (acc && acc.$avg !== undefined) {
+              const avgField = String(acc.$avg).replace(/^\$/, '');
+              const total = _items.reduce((s, it) => s + (Number(getPath(it, avgField)) || 0), 0);
+              groupDoc[field] = _items.length ? total / _items.length : 0;
+            }
+          }
+          aggregated.push(groupDoc);
+        }
+        rows = aggregated;
+      }
       if (stage.$unwind) rows = rows.flatMap((row) => {
         const path = stage.$unwind.replace('$', ''); const value = getPath(row, path);
         return Array.isArray(value) ? value.map((item) => { const copy = JSON.parse(JSON.stringify(row)); setPath(copy, path, item); return copy; }) : [row];

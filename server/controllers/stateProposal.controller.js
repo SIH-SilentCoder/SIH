@@ -112,7 +112,7 @@ const getProposalById = async (req, res, next) => {
   try {
     const { id } = req.params;
     let proposal = await StateProposal.findOne({
-      $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { proposalId: id }],
+      $or: [{ _id: id }, { proposalId: id }],
     }).populate('proposedBy', 'name email mobile employeeId role department');
 
     if (!proposal) throw new ApiError(404, 'Proposal not found.');

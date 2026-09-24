@@ -215,12 +215,32 @@ const login = async (req, res, next) => {
     let user;
 
     if (employeeId) {
-      // ── Officer login via Employee ID + Password (UNCHANGED) ──
+      // ── Officer login via Employee ID / Email / Mobile + Password ──
       if (!password) {
         throw new ApiError(400, 'Password is required for officer login.');
       }
-      const cleanId = String(employeeId).trim().toUpperCase();
-      user = await User.findOne({ employeeId: cleanId }).select('+password');
+      const rawId = String(employeeId).trim();
+      const cleanId = rawId.toUpperCase();
+
+      // State code normalization mapping (e.g. PUN <-> PB, HRY <-> HR, RAJ <-> RJ)
+      const aliases = {
+        'SPO-PUN-001': 'SPO-PB-001',
+        'SPO-PB-001': 'SPO-PUN-001',
+        'SPO-HRY-001': 'SPO-HR-001',
+        'SPO-HR-001': 'SPO-HRY-001',
+        'SPO-RAJ-001': 'SPO-RJ-001',
+        'SPO-RJ-001': 'SPO-RAJ-001',
+      };
+      const aliasedId = aliases[cleanId];
+
+      const lookupQueries = [
+        { employeeId: cleanId },
+        ...(aliasedId ? [{ employeeId: aliasedId }] : []),
+        { email: new RegExp(`^${rawId}$`, 'i') },
+        { mobile: rawId },
+      ];
+
+      user = await User.findOne({ $or: lookupQueries }).select('+password');
       if (!user) {
         throw new ApiError(401, 'Invalid Employee ID or password.');
       }

@@ -99,7 +99,13 @@ const getAdminDashboard = async (req, res, next) => {
 
     // Total procurement value
     const procMatch = { status: 'completed' };
-    if (stateCentreIds.length > 0) procMatch.centreId = { $in: stateCentreIds };
+    if (isJurisdictionScoped) {
+      if (jurisdictionCentreIds.length > 0) {
+        procMatch.centreId = { $in: jurisdictionCentreIds };
+      } else {
+        procMatch.centreId = '__none__';
+      }
+    }
     const [procValue] = await Procurement.aggregate([
       { $match: procMatch },
       { $group: { _id: null, total: { $sum: '$totalAmount' } } },

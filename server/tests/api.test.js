@@ -60,4 +60,41 @@ describe('Kisan Procurement Connect — Core Business Logic Tests', () => {
       expect(waitTime).toBe(0);
     });
   });
+
+  describe('Admin Dashboard Logic & Aggregations', () => {
+    const adminController = require('../controllers/admin.controller');
+
+    it('should successfully generate admin dashboard metrics without ReferenceError', async () => {
+      const req = { user: { role: 'central_admin' }, query: {} };
+      let responseData = null;
+      const res = {
+        json: (data) => { responseData = data; },
+        status: () => res,
+      };
+      let errorThrown = null;
+      const next = (err) => { errorThrown = err; };
+
+      await adminController.getAdminDashboard(req, res, next);
+
+      expect(errorThrown).toBeNull();
+      expect(responseData).toBeDefined();
+      expect(responseData.statusCode).toBe(200);
+      expect(responseData.data.summary).toBeDefined();
+    });
+
+    it('should successfully handle state_officer and district_officer scoped dashboards', async () => {
+      const reqState = { user: { role: 'state_officer', state: 'Punjab' }, query: {} };
+      let stateData = null;
+      const resState = {
+        json: (data) => { stateData = data; },
+        status: () => resState,
+      };
+      let errorState = null;
+      await adminController.getAdminDashboard(reqState, resState, (err) => { errorState = err; });
+
+      expect(errorState).toBeNull();
+      expect(stateData).toBeDefined();
+      expect(stateData.statusCode).toBe(200);
+    });
+  });
 });

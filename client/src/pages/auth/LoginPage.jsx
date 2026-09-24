@@ -48,7 +48,9 @@ const DEMO_CREDENTIALS = {
   ],
   admin: [
     { label: 'Central Admin', id: 'CPO-001', pwd: 'Admin@123', sub: 'Full Governance & Settings', tag: 'Central Admin' },
-    { label: 'State Officer (Punjab)', id: 'SPO-PUN-001', pwd: 'Kisan@123', sub: 'State-level Procurement Monitor', tag: 'State Admin' },
+    { label: 'State Officer (Punjab)', id: 'SPO-PB-001', pwd: 'Kisan@123', sub: 'Punjab State Nodal Officer', tag: 'State Admin' },
+    { label: 'State Officer (UP)', id: 'SPO-UP-001', pwd: 'Kisan@123', sub: 'Uttar Pradesh State Nodal Officer', tag: 'State Admin' },
+    { label: 'State Officer (MP)', id: 'SPO-MP-001', pwd: 'Kisan@123', sub: 'Madhya Pradesh State Nodal Officer', tag: 'State Admin' },
   ],
   district: [
     { label: 'District Officer (Ludhiana)', id: 'DNO-LDH-001', pwd: 'Kisan@123', sub: 'District Procurement Oversight', tag: 'District' },
