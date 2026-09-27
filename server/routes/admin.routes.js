@@ -17,12 +17,12 @@ const {
 // All routes require authentication
 router.use(authenticate);
 
-// ─── Central Admin Only ────────────────────────────────────────
-router.get('/dashboard', requireAdmin, getAdminDashboard);
-router.get('/states', requireAdmin, getStates);
+// ─── Dashboard, States & Analytics (Central, State, District Officers) ─────
+router.get('/dashboard', requireDistrictOrAbove, getAdminDashboard);
+router.get('/states', requireDistrictOrAbove, getStates);
 router.post('/states', requireAdmin, createState);
 router.post('/state-officers', requireAdmin, createStateOfficer);
-router.get('/analytics', requireAdmin, getAnalytics);
+router.get('/analytics', requireDistrictOrAbove, getAnalytics);
 
 // ─── District Officer + Above (level ≤ 3) ─────────────────────
 // Farmers

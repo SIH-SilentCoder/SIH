@@ -32,7 +32,8 @@ const requireLevel = (maxLevel) => {
     if (!req.user) {
       return next(new ApiError(401, 'Authentication required.'));
     }
-    const userLevel = ROLE_LEVELS[req.user.role] || 99;
+    const role = req.user.role === 'admin' ? ROLES.CENTRAL_ADMIN : req.user.role;
+    const userLevel = ROLE_LEVELS[role] || (req.user.role === 'admin' ? 1 : 99);
     if (userLevel > maxLevel) {
       return next(
         new ApiError(403, 'Access denied. Insufficient authority level.')
@@ -66,7 +67,7 @@ const requireOfficerOrAbove = (req, res, next) => {
 const requireOfficer = requireOfficerOrAbove;
 
 /** Central admin only */
-const requireAdmin = requireRole(ROLES.CENTRAL_ADMIN);
+const requireAdmin = requireRole(ROLES.CENTRAL_ADMIN, 'admin');
 
 /** Centre head or above (levels 1-4) */
 const requireCentreHeadOrAbove = requireLevel(4);

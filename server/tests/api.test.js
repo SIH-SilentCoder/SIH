@@ -96,5 +96,28 @@ describe('Kisan Procurement Connect — Core Business Logic Tests', () => {
       expect(stateData).toBeDefined();
       expect(stateData.statusCode).toBe(200);
     });
+
+    it('should permit central_admin, state_officer, and district_officer through requireDistrictOrAbove', () => {
+      const { requireDistrictOrAbove } = require('../middleware/role.middleware');
+      const allowedRoles = ['central_admin', 'state_officer', 'district_officer', 'admin'];
+
+      for (const role of allowedRoles) {
+        let calledNext = false;
+        let errReceived = null;
+        requireDistrictOrAbove({ user: { role } }, {}, (err) => {
+          calledNext = true;
+          errReceived = err;
+        });
+        expect(calledNext).toBe(true);
+        expect(errReceived).toBeUndefined();
+      }
+
+      let rejectedErr = null;
+      requireDistrictOrAbove({ user: { role: 'farmer' } }, {}, (err) => {
+        rejectedErr = err;
+      });
+      expect(rejectedErr).toBeDefined();
+      expect(rejectedErr.statusCode).toBe(403);
+    });
   });
 });
