@@ -113,8 +113,19 @@ export const staffService = {
   resetPassword: (id) => api.put(`/staff/${id}/reset-password`),
 };
 
+export const stateProposalService = {
+  getProposals: (params) => api.get('/state-proposals', { params }),
+  getProposalById: (id) => api.get(`/state-proposals/${id}`),
+  createProposal: (data) => api.post('/state-proposals', data),
+  updateProposal: (id, data) => api.put(`/state-proposals/${id}`, data),
+  replyFeedback: (id, data) => api.post(`/state-proposals/${id}/reply-feedback`, data),
+  approveProposal: (id, data) => api.post(`/state-proposals/${id}/approve`, data),
+  rejectProposal: (id, data) => api.post(`/state-proposals/${id}/reject`, data),
+};
+
 export const aiService = {
   chat: (message, history = []) => api.post('/ai/chat', { message, history }),
 };
+
 
 
