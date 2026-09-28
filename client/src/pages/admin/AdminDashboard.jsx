@@ -4,7 +4,8 @@ import {
   Building2, Landmark, Users, Wheat, Shield, PlusCircle, Clock,
   CheckCircle2, AlertTriangle, XCircle, Send, MessageSquare, Edit3,
   FileText, ArrowRight, RefreshCw, Layers, Check, Search, Filter,
-  ShieldCheck, IndianRupee, Scale, ChevronRight, Eye, Sparkles
+  ShieldCheck, IndianRupee, Scale, ChevronRight, Eye, Sparkles,
+  MapPin, ChevronDown, ChevronUp, FolderTree
 } from 'lucide-react';
 import AdminLayout from '../../layouts/AdminLayout';
 import { adminService, centreService, cropService, stateProposalService } from '../../services';
@@ -412,6 +413,125 @@ const AdminDashboard = () => {
     rejected: proposals.filter((p) => p.status === 'rejected').length,
   }), [proposals]);
 
+  // ── Procurement Network Hierarchy (State-wise -> District-wise -> Procurement Centre-wise) ──
+  const [hierarchySearch, setHierarchySearch] = useState('');
+  const [hierarchySelectedState, setHierarchySelectedState] = useState('all');
+  const [hierarchySelectedDistrict, setHierarchySelectedDistrict] = useState('all');
+  const [collapsedStates, setCollapsedStates] = useState({});
+  const [collapsedDistricts, setCollapsedDistricts] = useState({});
+
+  const hierarchyAvailableStates = useMemo(() => {
+    return Array.from(new Set(centres.map((c) => c.state).filter(Boolean))).sort();
+  }, [centres]);
+
+  const hierarchyAvailableDistricts = useMemo(() => {
+    return Array.from(
+      new Set(
+        centres
+          .filter((c) => hierarchySelectedState === 'all' || c.state?.toLowerCase() === hierarchySelectedState.toLowerCase())
+          .map((c) => c.district)
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [centres, hierarchySelectedState]);
+
+  const hierarchyData = useMemo(() => {
+    let list = centres;
+
+    // Apply role-based jurisdictional scoping
+    if (isStateOfficer) {
+      list = list.filter((c) => c.state?.toLowerCase() === userState.toLowerCase());
+    } else if (isDistrictOfficer) {
+      list = list.filter(
+        (c) =>
+          c.state?.toLowerCase() === userState.toLowerCase() &&
+          c.district?.toLowerCase() === userDistrict.toLowerCase()
+      );
+    } else if (selectedStateScope !== 'all') {
+      list = list.filter((c) => c.state?.toLowerCase() === selectedStateScope.toLowerCase());
+    }
+
+    // Manual filters
+    if (hierarchySelectedState !== 'all') {
+      list = list.filter((c) => c.state?.toLowerCase() === hierarchySelectedState.toLowerCase());
+    }
+    if (hierarchySelectedDistrict !== 'all') {
+      list = list.filter((c) => c.district?.toLowerCase() === hierarchySelectedDistrict.toLowerCase());
+    }
+    if (hierarchySearch.trim()) {
+      const q = hierarchySearch.toLowerCase().trim();
+      list = list.filter(
+        (c) =>
+          c.name?.toLowerCase().includes(q) ||
+          c.state?.toLowerCase().includes(q) ||
+          c.district?.toLowerCase().includes(q) ||
+          c.centreId?.toLowerCase().includes(q) ||
+          c.address?.toLowerCase().includes(q)
+      );
+    }
+
+    const grouped = {};
+    list.forEach((c) => {
+      const st = c.state || 'Other State';
+      const dist = c.district || 'General District';
+      if (!grouped[st]) {
+        grouped[st] = {
+          name: st,
+          districts: {},
+          totalCentres: 0,
+          totalCapacity: 0,
+          activeCentres: 0,
+        };
+      }
+      if (!grouped[st].districts[dist]) {
+        grouped[st].districts[dist] = {
+          name: dist,
+          centres: [],
+          totalCapacity: 0,
+          activeCentres: 0,
+        };
+      }
+      grouped[st].districts[dist].centres.push(c);
+      grouped[st].districts[dist].totalCapacity += Number(c.dailyCapacity) || 0;
+      if (c.isActive !== false) grouped[st].districts[dist].activeCentres += 1;
+
+      grouped[st].totalCentres += 1;
+      grouped[st].totalCapacity += Number(c.dailyCapacity) || 0;
+      if (c.isActive !== false) grouped[st].activeCentres += 1;
+    });
+
+    return grouped;
+  }, [centres, isStateOfficer, isDistrictOfficer, userState, userDistrict, selectedStateScope, hierarchySelectedState, hierarchySelectedDistrict, hierarchySearch]);
+
+  const toggleStateCollapse = (st) => {
+    setCollapsedStates((prev) => ({ ...prev, [st]: !prev[st] }));
+  };
+
+  const toggleDistrictCollapse = (distKey) => {
+    setCollapsedDistricts((prev) => ({ ...prev, [distKey]: !prev[distKey] }));
+  };
+
+  const expandAllHierarchy = () => {
+    setCollapsedStates({});
+    setCollapsedDistricts({});
+  };
+
+  const collapseAllHierarchy = () => {
+    const statesMap = {};
+    Object.keys(hierarchyData).forEach((st) => {
+      statesMap[st] = true;
+    });
+    setCollapsedStates(statesMap);
+  };
+
+  const totalHierarchyCentres = useMemo(() => {
+    return Object.values(hierarchyData).reduce((acc, st) => acc + st.totalCentres, 0);
+  }, [hierarchyData]);
+
+  const totalHierarchyCapacity = useMemo(() => {
+    return Object.values(hierarchyData).reduce((acc, st) => acc + st.totalCapacity, 0);
+  }, [hierarchyData]);
+
   const summary = summaryData?.summary || {};
   const isViewingStateLevel = isStateOfficer || isDistrictOfficer || (isCentralAdmin && selectedStateScope !== 'all');
   const activeScopeStateName = isStateOfficer ? userState : (selectedStateScope !== 'all' ? selectedStateScope : 'National');
@@ -730,7 +850,321 @@ const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* ── Section 3: State Proposals Status Tracker / Approval Console ── */}
+        {/* ── Section 3: Procurement Network Hierarchy (State-wise -> District-wise -> Procurement Centre-wise) ── */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden space-y-4 p-6">
+          {/* Header & Hierarchy Summary */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                  <FolderTree className="w-4 h-4" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <span>Procurement Network Directory</span>
+                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      State &rarr; District &rarr; Mandi
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Live hierarchical directory arranged State-wise, District-wise, and Procurement Centre-wise
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-xl">
+                {Object.keys(hierarchyData).length} States
+              </span>
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl">
+                {totalHierarchyCentres} Mandis
+              </span>
+              <span className="text-xs font-bold text-blue-800 bg-blue-50 border border-blue-200 px-3 py-1 rounded-xl">
+                {totalHierarchyCapacity.toLocaleString()} qtl/day Capacity
+              </span>
+              <Link
+                to="/admin/centres"
+                className="text-xs font-bold text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 ml-2"
+              >
+                <span>Full Centre Manager</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Filter Bar & Controls */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            <div className="flex flex-wrap items-center gap-2.5 flex-1">
+              {/* Search */}
+              <div className="relative min-w-[200px] flex-1 max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search State, District, Mandi, Address..."
+                  value={hierarchySearch}
+                  onChange={(e) => setHierarchySearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              {/* State Filter (if not locked to state) */}
+              {!isStateOfficer && !isDistrictOfficer && (
+                <select
+                  value={hierarchySelectedState}
+                  onChange={(e) => {
+                    setHierarchySelectedState(e.target.value);
+                    setHierarchySelectedDistrict('all');
+                  }}
+                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="all">All States ({hierarchyAvailableStates.length})</option>
+                  {hierarchyAvailableStates.map((st) => (
+                    <option key={st} value={st}>{st}</option>
+                  ))}
+                </select>
+              )}
+
+              {/* District Filter */}
+              <select
+                value={hierarchySelectedDistrict}
+                onChange={(e) => setHierarchySelectedDistrict(e.target.value)}
+                className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 focus:ring-2 focus:ring-emerald-500"
+              >
+                <option value="all">All Districts ({hierarchyAvailableDistricts.length})</option>
+                {hierarchyAvailableDistricts.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+
+              {(hierarchySearch || hierarchySelectedState !== 'all' || hierarchySelectedDistrict !== 'all') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHierarchySearch('');
+                    setHierarchySelectedState('all');
+                    setHierarchySelectedDistrict('all');
+                  }}
+                  className="text-xs text-rose-600 font-bold hover:underline"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+
+            {/* Expand / Collapse Controls */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={expandAllHierarchy}
+                className="px-3 py-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-xl border border-slate-200 shadow-xs transition"
+              >
+                Expand All
+              </button>
+              <button
+                type="button"
+                onClick={collapseAllHierarchy}
+                className="px-3 py-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 rounded-xl border border-slate-200 shadow-xs transition"
+              >
+                Collapse All
+              </button>
+            </div>
+          </div>
+
+          {/* ── Level 1: State List ── */}
+          {Object.keys(hierarchyData).length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <Building2 className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="font-bold text-slate-700">No procurement centres found</p>
+              <p className="text-slate-400 mt-1">Adjust search parameters or add new mandis using the actions above.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(hierarchyData).map(([stateName, stateObj]) => {
+                const isStateCollapsed = collapsedStates[stateName];
+                const distEntries = Object.entries(stateObj.districts);
+
+                return (
+                  <div
+                    key={stateName}
+                    className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden transition-all"
+                  >
+                    {/* Level 1: State Header Bar */}
+                    <div
+                      onClick={() => toggleStateCollapse(stateName)}
+                      className="p-3.5 sm:p-4 bg-gradient-to-r from-slate-900 to-slate-800 text-white flex items-center justify-between cursor-pointer hover:from-slate-800 hover:to-slate-750 transition"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+                          <Landmark className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">
+                              {stateName}
+                            </h3>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
+                              {distEntries.length} Districts
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-400/20 text-blue-300 border border-blue-400/30">
+                              {stateObj.totalCentres} Mandis
+                            </span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">
+                            Cumulative Capacity: <strong className="text-white">{stateObj.totalCapacity.toLocaleString()} qtl/day</strong> • Operational Mandis: {stateObj.activeCentres} / {stateObj.totalCentres}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 font-semibold hidden sm:inline">
+                          {isStateCollapsed ? 'Show Districts' : 'Hide Districts'}
+                        </span>
+                        {isStateCollapsed ? (
+                          <ChevronDown className="w-4 h-4 text-slate-400" />
+                        ) : (
+                          <ChevronUp className="w-4 h-4 text-emerald-400" />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Level 2 & 3: Districts & Mandis (shown when State expanded) */}
+                    {!isStateCollapsed && (
+                      <div className="p-4 space-y-4 bg-slate-50/60 divide-y divide-slate-200/60">
+                        {distEntries.map(([districtName, distObj], dIdx) => {
+                          const distKey = `${stateName}-${districtName}`;
+                          const isDistCollapsed = collapsedDistricts[distKey];
+
+                          return (
+                            <div key={districtName} className={`space-y-3 ${dIdx > 0 ? 'pt-4' : ''}`}>
+                              {/* Level 2: District Banner */}
+                              <div
+                                onClick={() => toggleDistrictCollapse(distKey)}
+                                className="flex items-center justify-between bg-white px-3.5 py-2.5 rounded-xl border border-slate-200 cursor-pointer hover:border-emerald-300 transition"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                                  <h4 className="text-xs font-black text-slate-900">
+                                    {districtName} District
+                                  </h4>
+                                  <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                                    {distObj.centres.length} Mandi(s)
+                                  </span>
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[10px] font-mono font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                                    Cap: {distObj.totalCapacity} qtl/day
+                                  </span>
+                                  {isDistCollapsed ? (
+                                    <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                                  ) : (
+                                    <ChevronUp className="w-3.5 h-3.5 text-emerald-600" />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Level 3: Procurement Centres Grid under this District */}
+                              {!isDistCollapsed && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pl-2 sm:pl-4">
+                                  {distObj.centres.map((centre) => (
+                                    <div
+                                      key={centre._id}
+                                      className="bg-white p-3.5 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all flex flex-col justify-between"
+                                    >
+                                      <div>
+                                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-1.5">
+                                              <Building2 className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                                              <h5 className="text-xs font-black text-slate-900 leading-tight">
+                                                {centre.name}
+                                              </h5>
+                                            </div>
+                                            <span className="text-[10px] font-mono font-bold text-slate-400">
+                                              {centre.centreId || 'MND-CENTRE'}
+                                            </span>
+                                          </div>
+                                          <span
+                                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                              centre.isActive !== false
+                                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                            }`}
+                                          >
+                                            {centre.isActive !== false ? 'Active' : 'Inactive'}
+                                          </span>
+                                        </div>
+
+                                        <p className="text-[10px] text-slate-500 line-clamp-1 mb-2">
+                                          {centre.address || `${centre.district}, ${centre.state}`}
+                                        </p>
+
+                                        {/* Capacity & Operating Hours */}
+                                        <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 rounded-lg text-[10px] mb-2">
+                                          <div>
+                                            <span className="text-slate-400 font-bold block text-[9px]">CAPACITY</span>
+                                            <span className="font-bold text-slate-800">
+                                              {centre.dailyCapacity || 100} qtl/day
+                                            </span>
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-400 font-bold block text-[9px]">HOURS</span>
+                                            <span className="font-bold text-slate-800">
+                                              {centre.operatingHours?.start || '09:00'} - {centre.operatingHours?.end || '17:00'}
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        {/* Available Crops */}
+                                        {centre.availableCrops && centre.availableCrops.length > 0 && (
+                                          <div>
+                                            <span className="text-[9px] font-bold text-slate-400 block mb-1">
+                                              ACCEPTED CROPS
+                                            </span>
+                                            <div className="flex flex-wrap gap-1">
+                                              {centre.availableCrops.map((crop, cIdx) => (
+                                                <span
+                                                  key={cIdx}
+                                                  className="text-[9px] font-medium bg-emerald-50 text-emerald-800 px-1.5 py-0.5 rounded border border-emerald-100"
+                                                >
+                                                  {typeof crop === 'object' ? crop.name : crop}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                                        <span className="text-slate-400 font-medium">
+                                          {centre.contactPhone ? `Ph: ${centre.contactPhone}` : 'Direct Intake'}
+                                        </span>
+                                        <Link
+                                          to="/admin/centres"
+                                          className="text-emerald-700 hover:text-emerald-800 font-bold hover:underline flex items-center gap-0.5"
+                                        >
+                                          <span>Manage</span>
+                                          <ChevronRight className="w-3 h-3" />
+                                        </Link>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* ── Section 4: State Proposals Status Tracker / Approval Console ── */}
         <div id="proposals-tracker-section" className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
           {/* Header & Filter Controls */}
           <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">

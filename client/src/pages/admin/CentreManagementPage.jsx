@@ -32,6 +32,10 @@ const CentreManagementPage = () => {
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [selectedState, setSelectedState] = useState(user?.role === 'state_officer' ? (user?.state || '') : 'all');
+  const [selectedDistrict, setSelectedDistrict] = useState(user?.role === 'district_officer' ? (user?.district || '') : 'all');
+  const [viewMode, setViewMode] = useState('hierarchy'); // 'hierarchy' | 'flat'
+  const [collapsedStates, setCollapsedStates] = useState({});
 
   const [form, setForm] = useState({
     ...INITIAL_FORM,
@@ -141,22 +145,67 @@ const CentreManagementPage = () => {
   };
 
   const filtered = centres.filter((c) => {
+    if (selectedState !== 'all' && c.state?.toLowerCase() !== selectedState.toLowerCase()) return false;
+    if (selectedDistrict !== 'all' && c.district?.toLowerCase() !== selectedDistrict.toLowerCase()) return false;
+    if (!search) return true;
     const q = search.toLowerCase();
-    return c.name?.toLowerCase().includes(q) || c.district?.toLowerCase().includes(q) || c.centreId?.toLowerCase().includes(q);
+    return (
+      c.name?.toLowerCase().includes(q) ||
+      c.district?.toLowerCase().includes(q) ||
+      c.state?.toLowerCase().includes(q) ||
+      c.centreId?.toLowerCase().includes(q)
+    );
   });
+
+  // Unique states and districts for filters
+  const availableStates = Array.from(new Set(centres.map((c) => c.state).filter(Boolean))).sort();
+  const availableDistricts = Array.from(
+    new Set(
+      centres
+        .filter((c) => selectedState === 'all' || c.state?.toLowerCase() === selectedState.toLowerCase())
+        .map((c) => c.district)
+        .filter(Boolean)
+    )
+  ).sort();
+
+  // Grouped hierarchy: State -> District -> Centres
+  const hierarchy = {};
+  filtered.forEach((centre) => {
+    const st = centre.state || 'Other State';
+    const dist = centre.district || 'General District';
+    if (!hierarchy[st]) hierarchy[st] = { name: st, districts: {}, totalCentres: 0, totalCapacity: 0 };
+    if (!hierarchy[st].districts[dist]) hierarchy[st].districts[dist] = { name: dist, centres: [], totalCapacity: 0 };
+    hierarchy[st].districts[dist].centres.push(centre);
+    hierarchy[st].districts[dist].totalCapacity += Number(centre.dailyCapacity) || 0;
+    hierarchy[st].totalCentres += 1;
+    hierarchy[st].totalCapacity += Number(centre.dailyCapacity) || 0;
+  });
+
+  const toggleStateCollapse = (st) => {
+    setCollapsedStates((prev) => ({ ...prev, [st]: !prev[st] }));
+  };
 
   return (
     <AdminLayout>
-      <div className="page-header flex items-start justify-between gap-4">
+      <div className="page-header flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
-          <h1 className="page-title">Procurement Centres</h1>
-          <p className="page-subtitle">Manage procurement centres in your jurisdiction</p>
+          <h1 className="page-title flex items-center gap-2">
+            <span>Procurement Centres</span>
+            <span className="text-xs font-mono font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+              {filtered.length} Mandis
+            </span>
+          </h1>
+          <p className="page-subtitle">
+            Hierarchical directory arranged State-wise &rarr; District-wise &rarr; Procurement Centre-wise
+          </p>
         </div>
-        {user?.role === 'state_officer' && (
-          <Button variant="primary" onClick={() => { resetForm(); setShowForm(true); }} leftIcon={<Plus className="w-4 h-4" />}>
-            Add Centre
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {user?.role === 'state_officer' && (
+            <Button variant="primary" onClick={() => { resetForm(); setShowForm(true); }} leftIcon={<Plus className="w-4 h-4" />}>
+              Add Centre
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Form */}
@@ -244,9 +293,6 @@ const CentreManagementPage = () => {
                     );
                   })}
                 </div>
-                {crops.length === 0 && (
-                  <p className="text-sm text-amber-600">No crops available. Add crops first from Crop Management.</p>
-                )}
               </div>
             )}
 
@@ -262,26 +308,226 @@ const CentreManagementPage = () => {
         </div>
       )}
 
-      {/* Search */}
-      <div className="flex items-center gap-3 mb-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input type="text" placeholder="Search by name, district..." value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9 w-full" />
+      {/* ── Filter & Arrangement Controls ── */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 flex-1">
+          {/* Search */}
+          <div className="relative min-w-[200px] flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search state, district, mandi..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+          </div>
+
+          {/* State Filter (if not locked to state) */}
+          {user?.role !== 'state_officer' && (
+            <select
+              value={selectedState}
+              onChange={(e) => {
+                setSelectedState(e.target.value);
+                setSelectedDistrict('all');
+              }}
+              className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:ring-2 focus:ring-emerald-500"
+            >
+              <option value="all">All States ({availableStates.length})</option>
+              {availableStates.map((st) => (
+                <option key={st} value={st}>{st}</option>
+              ))}
+            </select>
+          )}
+
+          {/* District Filter */}
+          <select
+            value={selectedDistrict}
+            onChange={(e) => setSelectedDistrict(e.target.value)}
+            className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="all">All Districts ({availableDistricts.length})</option>
+            {availableDistricts.map((d) => (
+              <option key={d} value={d}>{d}</option>
+            ))}
+          </select>
         </div>
-        <Button variant="ghost" size="sm" onClick={fetchData} leftIcon={<RefreshCw className="w-4 h-4" />}>Refresh</Button>
+
+        {/* View Mode Toggle: Hierarchy vs Flat */}
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={() => setViewMode('hierarchy')}
+            className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+              viewMode === 'hierarchy'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            State &rarr; District &rarr; Mandi
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('flat')}
+            className={`px-3 py-1 text-xs font-bold rounded-lg transition ${
+              viewMode === 'flat'
+                ? 'bg-white text-slate-900 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            Flat Grid
+          </button>
+        </div>
       </div>
 
-      {/* Centres Grid */}
+      {/* ── Centres Rendering ── */}
       {loading ? (
         <CardSkeleton rows={3} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="No procurement centres"
-          description={centres.length === 0 ? "No centres created yet. Add your first procurement centre above." : "No centres match your search."}
+          title="No procurement centres found"
+          description={centres.length === 0 ? "No centres created yet. Add your first procurement centre above." : "No centres match your filter criteria."}
           className="card"
         />
+      ) : viewMode === 'hierarchy' ? (
+        // ── Hierarchical: State Wise -> District Wise -> Centre Wise ──
+        <div className="space-y-6">
+          {Object.entries(hierarchy).map(([stateName, stateObj]) => {
+            const isCollapsed = collapsedStates[stateName];
+            const distEntries = Object.entries(stateObj.districts);
+
+            return (
+              <div key={stateName} className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+                {/* State Header Bar */}
+                <div
+                  onClick={() => toggleStateCollapse(stateName)}
+                  className="p-4 bg-slate-900 text-white flex items-center justify-between cursor-pointer hover:bg-slate-800 transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold">
+                      <Landmark className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm font-black text-white uppercase tracking-wider">{stateName}</h2>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30">
+                          {distEntries.length} Districts
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-400/20 text-blue-300 border border-blue-400/30">
+                          {stateObj.totalCentres} Mandis
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">Total State Capacity: {stateObj.totalCapacity.toLocaleString()} qtl/day</p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-slate-400 font-bold">
+                    {isCollapsed ? 'Expand +' : 'Collapse −'}
+                  </span>
+                </div>
+
+                {/* State Content (Districts and Centres) */}
+                {!isCollapsed && (
+                  <div className="p-5 space-y-6 divide-y divide-slate-100">
+                    {distEntries.map(([districtName, distObj], dIdx) => (
+                      <div key={districtName} className={`space-y-3 ${dIdx > 0 ? 'pt-5' : ''}`}>
+                        {/* District Banner */}
+                        <div className="flex items-center justify-between bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200/80">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-emerald-600" />
+                            <h3 className="text-xs font-black text-slate-900">{districtName} District</h3>
+                            <span className="text-[10px] text-slate-500 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                              {distObj.centres.length} Procurement Centre(s)
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold text-slate-600">
+                            District Cap: {distObj.totalCapacity} qtl
+                          </span>
+                        </div>
+
+                        {/* District's Centres Cards Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                          {distObj.centres.map((centre) => (
+                            <div
+                              key={centre._id}
+                              className={`p-4 rounded-2xl bg-white border border-slate-200 hover:border-emerald-300 transition flex flex-col justify-between shadow-xs ${
+                                !centre.isActive ? 'opacity-65' : ''
+                              }`}
+                            >
+                              <div>
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div>
+                                    <p className="text-xs font-bold text-slate-900 leading-tight">{centre.name}</p>
+                                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">{centre.centreId}</p>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full flex-shrink-0 ${
+                                      centre.isActive
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    }`}
+                                  >
+                                    {centre.isActive ? 'Active' : 'Pending Approval'}
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1 text-xs text-slate-600">
+                                  <div className="flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>{centre.operatingHours?.start || '09:00'} – {centre.operatingHours?.end || '17:00'}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Users className="w-3.5 h-3.5 text-slate-400" />
+                                    <span>Capacity: <strong>{centre.dailyCapacity} qtl/day</strong></span>
+                                  </div>
+                                  {centre.address && (
+                                    <p className="text-[11px] text-slate-500 truncate pt-0.5">{centre.address}</p>
+                                  )}
+                                  {centre.availableCrops?.length > 0 && (
+                                    <div className="flex items-center gap-1 flex-wrap pt-1">
+                                      <Package className="w-3.5 h-3.5 text-slate-400" />
+                                      {centre.availableCrops.slice(0, 3).map((c, i) => (
+                                        <span key={i} className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.2 rounded font-semibold">
+                                          {c.name || c}
+                                        </span>
+                                      ))}
+                                      {centre.availableCrops.length > 3 && (
+                                        <span className="text-[9px] text-slate-400">+{centre.availableCrops.length - 3}</span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 pt-2.5 mt-3 border-t border-slate-100">
+                                <Button variant="ghost" size="sm" onClick={() => openEdit(centre)} leftIcon={<Edit3 className="w-3.5 h-3.5" />}>
+                                  Edit
+                                </Button>
+                                {centre.isActive && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-700"
+                                    onClick={() => handleDelete(centre._id)}
+                                    leftIcon={<Trash2 className="w-3.5 h-3.5" />}
+                                  >
+                                    Deactivate
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       ) : (
+        // ── Flat Grid View ──
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((centre) => (
             <div key={centre._id} className={`card p-5 flex flex-col gap-3 ${!centre.isActive ? 'opacity-60' : ''}`}>
@@ -301,7 +547,7 @@ const CentreManagementPage = () => {
               <div className="space-y-1.5 text-sm text-gray-600">
                 <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" />{centre.district}, {centre.state}</div>
                 <div className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-gray-400" />{centre.operatingHours?.start || '09:00'} – {centre.operatingHours?.end || '17:00'}</div>
-                <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-gray-400" />Capacity: {centre.dailyCapacity} farmers/day</div>
+                <div className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5 text-gray-400" />Capacity: {centre.dailyCapacity} qtl/day</div>
                 {centre.availableCrops?.length > 0 && (
                   <div className="flex items-center gap-1.5">
                     <Package className="w-3.5 h-3.5 text-gray-400" />
